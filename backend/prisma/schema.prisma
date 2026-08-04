@@ -5,3 +5,168 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum AuditAction {
+  USER_REGISTERED
+  USER_LOGGED_IN
+  USER_LOGGED_OUT
+
+  EMAIL_VERIFIED
+  VERIFICATION_EMAIL_RESENT
+
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+
+  ORGANIZATION_CREATED
+  ORGANIZATION_UPDATED
+  ORGANIZATION_DELETED
+
+  INVITATION_SENT
+  INVITATION_ACCEPTED
+  INVITATION_REVOKED
+
+  MEMBER_ROLE_UPDATED
+  MEMBER_REMOVED
+}
+
+model User {
+  id String @id @default(cuid())
+  name String 
+  email String @unique
+  hashedPassword String
+  isEmailVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  sessions Session[]
+  verificationTokens VerificationToken[]
+  memberships Membership[]
+  invitations Invitation[] @relation("InvitationsSent")
+  auditLogs AuditLog[]
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  userId String
+  user User @relation(fields: [userId],references: [id], onDelete: Cascade)
+
+  hashedRefreshToken String
+
+  ipAddress String?
+  userAgent String?
+  deviceName String?
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken{
+  id String @id @default(cuid())
+
+  userId String 
+  user User @relation(fields: [userId],references: [id], onDelete: Cascade)
+
+  hashedToken String @unique
+  type VerificationTokenType
+
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([id])
+  @@index([hashedToken])
+}
+
+model Organization {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  memberships Membership[]
+  invitations Invitation[]
+}
+
+model Membership {
+  id String @id @default(cuid())
+  
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  role Role
+
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, organizationId])
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Invitation {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invitedById String
+  invitedBy User @relation("InvitationsSent",fields: [invitedById], references: [id])
+
+  role Role
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  acceptedAt DateTime?
+
+  @@index([email])
+  @@index([invitedById])
+  @@index([organizationId])
+  @@index([organizationId,email])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+  action AuditAction
+
+  userId String?
+  user User? @relation(fields: [userId],references: [id], onDelete: SetNull)
+
+  ipAddress String?
+  userAgent String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  
+  @@index([action])
+  @@index([userId])
+  @@index([createdAt])
+}
