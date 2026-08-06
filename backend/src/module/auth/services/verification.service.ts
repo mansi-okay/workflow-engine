@@ -24,7 +24,7 @@ export class VerificationService{
     ): Promise<void> {
 
         const verificationToken = await this.verificationTokenRepository
-        .findByToken(token)
+        .findByRawToken(token)
 
         if (!verificationToken){
             throw new BadRequestError("Invalid verification token")

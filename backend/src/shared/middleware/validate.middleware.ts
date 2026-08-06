@@ -18,7 +18,7 @@ export function validate(
                 .join(", ")
             )
         )
-        }
+    }
 
     switch (source) {
         case "body":

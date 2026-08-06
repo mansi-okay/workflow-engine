@@ -13,7 +13,7 @@ export class VerificationTokenRepository{
         return this.db.verificationToken.create({data})
     }   
 
-    async findByToken(token: string): Promise<VerificationTokenWithUser | null> {
+    async findByRawToken(token: string): Promise<VerificationTokenWithUser | null> {
         return this.db.verificationToken.findUnique({
             where: {hashedToken: hashToken(token)},
             include: {user: true}

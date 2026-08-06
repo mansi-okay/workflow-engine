@@ -21,6 +21,10 @@ enum AuditAction {
   USER_REGISTERED
   USER_LOGGED_IN
   USER_LOGGED_OUT
+  USER_LOGGED_OUT_ALL
+
+  SESSION_REFRESHED
+  SESSION_REVOKED
 
   EMAIL_VERIFIED
   VERIFICATION_EMAIL_RESENT
@@ -92,7 +96,7 @@ model VerificationToken{
   usedAt DateTime?
   createdAt DateTime @default(now())
 
-  @@index([id])
+  @@index([userId])
   @@index([hashedToken])
 }
 

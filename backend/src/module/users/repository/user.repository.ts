@@ -29,4 +29,10 @@ export class UserRepository{
             } 
         })
     }
+
+    async findById(userId: string): Promise<User | null>{
+        return this.db.user.findUnique({
+            where: {id: userId}
+        })
+    }
 }

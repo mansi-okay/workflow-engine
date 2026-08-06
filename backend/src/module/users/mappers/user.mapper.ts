@@ -6,5 +6,5 @@ export const toUserResponseDto = (user: User): UserResponseDto => ({
     name: user.name,
     email: user.email,
     isEmailVerified: user.isEmailVerified,
-    createdAt: user.createdAt
+    createdAt: user.createdAt.toISOString()
 })

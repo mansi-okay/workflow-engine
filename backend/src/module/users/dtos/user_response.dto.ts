@@ -3,5 +3,5 @@ export interface UserResponseDto {
     name: string
     email: string
     isEmailVerified: boolean
-    createdAt: Date
+    createdAt: string
 }
