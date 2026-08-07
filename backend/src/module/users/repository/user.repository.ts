@@ -35,4 +35,13 @@ export class UserRepository{
             where: {id: userId}
         })
     }
+
+    async updatePassword(userId: string, hashedPassword: string): Promise<User | null>{
+        return this.db.user.update({
+            where: {id: userId},
+            data: {
+                hashedPassword
+            }
+        })
+    }
 }

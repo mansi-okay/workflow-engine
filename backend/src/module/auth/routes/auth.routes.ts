@@ -7,6 +7,8 @@ import { verifyEmailSchema } from "../validations/verify_email.schema.js";
 import { resendVerificationEmailSchema } from "../validations/resend_verification.schema.js";
 import { loginSchema } from "../validations/login.schema.js";
 import { revokeSessionSchema } from "../validations/revoke_session.schema.js";
+import { forgotPasswordSchema } from "../validations/forgot_password.schema.js";
+import { resetPasswordBodySchema, resetPasswordQuerySchema } from "../validations/reset_password.schema.js";
 
 const router = Router()
 
@@ -24,6 +26,15 @@ router.get("/sessions", asyncHandler(authController.getSessions))
 router.delete("/sessions/:sessionId", 
     validate(revokeSessionSchema, "params"), 
     asyncHandler(authController.revokeUserSession)
+)
+router.post("/forgot-password",
+    validate(forgotPasswordSchema, "body"), 
+    asyncHandler(authController.forgotPassword)
+)
+router.post("/reset-password",
+    validate(resetPasswordBodySchema, "body"),
+    validate(resetPasswordQuerySchema,"query"),
+    asyncHandler(authController.resetPassword)
 )
 
 export default router

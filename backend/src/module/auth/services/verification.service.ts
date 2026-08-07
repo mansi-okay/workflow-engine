@@ -85,7 +85,7 @@ export class VerificationService{
         const token = generateRandomToken()
 
         await this.unitOfWork.transaction(async (repos) => {
-            await repos.verificationTokens.deleteActiveEmailVerificationTokens(user.id)
+            await repos.verificationTokens.deletActiveTokens(user.id, VerificationTokenType.EMAIL_VERIFICATION)
 
             await repos.verificationTokens.create({
                 userId: user.id,

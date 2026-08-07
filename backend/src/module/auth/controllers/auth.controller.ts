@@ -13,12 +13,16 @@ import { getAccessToken, getRefreshToken } from "../../../shared/utils/http/get_
 import { SessionService } from "../services/session.service.js";
 import { toSessionResponseDto } from "../mappers/session.mapper.js";
 import { RevokeSessionInput } from "../validations/revoke_session.schema.js";
+import { ForgotPasswordInput } from "../validations/forgot_password.schema.js";
+import { PasswordService } from "../services/password.service.js";
+import { ResetPasswordBodyInput, ResetPasswordQueryInput } from "../validations/reset_password.schema.js";
 
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly verificationService: VerificationService,
-        private readonly sessionService: SessionService
+        private readonly sessionService: SessionService,
+        private readonly passwordService: PasswordService
     ) {}
 
     register: AsyncController = async (req: Request, res: Response): Promise<void> => {
@@ -195,6 +199,42 @@ export class AuthController {
         res.status(200).json({
             success: true,
             message: "User session revoked successfully"
+        })
+    }
+
+    forgotPassword: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {email} = req.body as ForgotPasswordInput
+
+        const metadata = getSessionMetadata(req)
+
+        await this.passwordService.forgotPassword(
+            email, 
+            metadata,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "If an account exists, a password reset email has been sent."
+        })
+    }
+
+    resetPassword: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {token} = req.query as ResetPasswordQueryInput
+        const {newPassword} = req.body as ResetPasswordBodyInput
+
+        const metadata = getSessionMetadata(req)
+
+        await this.passwordService.resetPassword(
+            token,
+            newPassword,
+            metadata,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Password reset successfully"
         })
     }
 }

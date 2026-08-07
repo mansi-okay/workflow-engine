@@ -27,13 +27,15 @@ export class VerificationTokenRepository{
         })
     }
 
-    async deleteActiveEmailVerificationTokens(userId: string) {
-        return this.db.verificationToken.deleteMany({
-            where: {
+    async deletActiveTokens(userId: string, type: VerificationTokenType): Promise<number>{
+        const result = await this.db.verificationToken.deleteMany({
+            where:{
                 userId,
-                type: VerificationTokenType.EMAIL_VERIFICATION,
-                usedAt: null
+                type,
+                usedAt:null
             }
         })
+
+        return result.count
     }
 }
