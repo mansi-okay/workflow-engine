@@ -9,13 +9,14 @@ import { VerifyEmailInput } from "../validations/verify_email.schema.js";
 import { VerificationService } from "../services/verification.service.js";
 import { ResendVerificationEmailInput } from "../validations/resend_verification.schema.js";
 import { LoginInput } from "../validations/login.schema.js";
-import { getAccessToken, getRefreshToken } from "../../../shared/utils/http/get_tokens.js";
+import { getRefreshToken } from "../../../shared/utils/http/get_tokens.js";
 import { SessionService } from "../services/session.service.js";
 import { toSessionResponseDto } from "../mappers/session.mapper.js";
 import { RevokeSessionInput } from "../validations/revoke_session.schema.js";
 import { ForgotPasswordInput } from "../validations/forgot_password.schema.js";
 import { PasswordService } from "../services/password.service.js";
 import { ResetPasswordBodyInput, ResetPasswordQueryInput } from "../validations/reset_password.schema.js";
+import { getAuthContext } from "../../../shared/utils/http/get_auth_context.js";
 
 export class AuthController {
     constructor(
@@ -131,11 +132,11 @@ export class AuthController {
     }
 
     logout: AsyncController = async(req: Request, res: Response): Promise<void> => {
-        const accessToken = getAccessToken(req)
+        const auth = getAuthContext(req)
         const metadata = getSessionMetadata(req)
 
         await this.sessionService.logout(
-            accessToken, 
+            auth, 
             metadata, 
             req.logger
         )
@@ -149,11 +150,11 @@ export class AuthController {
     }
 
     logoutAll: AsyncController = async(req: Request, res: Response): Promise<void> => {
-        const accessToken = getAccessToken(req)
+        const auth = getAuthContext(req)
         const metadata = getSessionMetadata(req)
 
         await this.sessionService.logoutAll(
-            accessToken,
+            auth,
             metadata,
             req.logger
         )
@@ -167,9 +168,9 @@ export class AuthController {
     }
 
     getSessions: AsyncController = async(req: Request, res: Response): Promise<void> => {
-        const accessToken = getAccessToken(req)
+        const auth = getAuthContext(req)
 
-        const { currentSessionId, sessions } = await this.sessionService.getSessions(accessToken)
+        const { currentSessionId, sessions } = await this.sessionService.getSessions(auth)
 
         const sessionDtos = sessions.map(session =>
             toSessionResponseDto(session, currentSessionId))
@@ -186,12 +187,12 @@ export class AuthController {
     revokeUserSession: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const { sessionId } = req.params as RevokeSessionInput
 
-        const accessToken = getAccessToken(req)
+        const auth = getAuthContext(req)
         const metadata = getSessionMetadata(req)
 
         await this.sessionService.revokeUserSession(
             sessionId,
-            accessToken,
+            auth,
             metadata,
             req.logger
         )

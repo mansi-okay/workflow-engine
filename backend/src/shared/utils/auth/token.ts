@@ -1,5 +1,5 @@
 import jwt, { SignOptions } from "jsonwebtoken"
-import { AccessTokenPayload, RefreshTokenPayload } from "../../types/auth.types.js"
+import { AccessTokenPayload, RefreshTokenPayload } from "../../../module/auth/types/auth.types.js"
 import { env } from "../../../config/env.js"
 import crypto from "crypto"
 import { UnauthorizedError } from "../../error/HttpErrors.js"

@@ -6,49 +6,17 @@ import { toAccessPayload, toRefreshPayload } from "../../../shared/utils/auth/pa
 import { SessionRepository } from "../repository/session.repository.js";
 import { createExpirationDate } from "../../../shared/utils/date/expiration.js";
 import { env } from "../../../config/env.js";
-import { SessionAuthentication, AuthResult, SessionResult, SessionsResult } from "../types/auth.types.js";
+import { AuthResult, SessionResult, SessionsResult } from "../types/auth.types.js";
 import { Logger } from "pino";
 import { BadRequestError, UnauthorizedError } from "../../../shared/error/HttpErrors.js";
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
+import { AuthContext } from "../../../shared/types/request_context.js";
 
 export class SessionService {
     constructor(
         private readonly sessionRepository: SessionRepository,
         private readonly unitOfWork: UnitOfWork
     ){}
-
-    private async authenticateSession(
-        accessToken: string
-    ): Promise<SessionAuthentication>{
-        const payload = verifyAccessToken(accessToken)
-        
-        const userId = payload.sub
-        const sessionId = payload.sid
-
-        const session = await this.sessionRepository.findByIdWithUser(sessionId)
-
-        if (!session){
-            throw new UnauthorizedError("Invalid access token")
-        }
-
-        if (session.userId !== userId){
-            throw new UnauthorizedError("Invalid access token")
-        }
-
-        if (session.user.deletedAt){
-            throw new UnauthorizedError("Invalid access token")
-        }
-
-        if (session.revokedAt){
-            throw new UnauthorizedError("Invalid access token")
-        }
-
-        return {
-            currentUserId: userId,
-            currentSessionId: sessionId,
-            session
-        }
-    }
 
     private async revokeSession(
         sessionId: string,
@@ -206,71 +174,63 @@ export class SessionService {
     }
 
     async logout(
-        accessToken: string,
+        auth: AuthContext,
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<void>{
 
-        const {currentUserId, currentSessionId} = await this.authenticateSession(accessToken)
-
         await this.revokeSession(
-            currentSessionId,
-            currentUserId, 
+            auth.sessionId,
+            auth.userId, 
             metadata, 
             AuditAction.USER_LOGGED_OUT
         )
 
         logger.info({
-            currentUserId,
-            currentSessionId
+            userId: auth.userId,
+            sessionId: auth.sessionId
         }, "User logged out successfully")
     }
 
     async logoutAll(
-        accessToken: string,
+        auth: AuthContext,
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<void> {
 
-        const {currentUserId, currentSessionId} = await this.authenticateSession(accessToken)
-
         const revokeCount = await this.revokeAllSessions(
-            currentUserId,
+            auth.userId,
             metadata,
             AuditAction.USER_LOGGED_OUT_ALL
         )
 
         logger.info({
-            currentUserId,
-            currentSessionId,
+            userId: auth.userId,
+            sessionId: auth.sessionId,
             revokedSessions: revokeCount
         }, "User logged out of all sessions")
     }
 
     async getSessions(
-        accessToken: string
+        auth: AuthContext
     ): Promise<SessionsResult>{
 
-        const {currentUserId, currentSessionId} = await this.authenticateSession(accessToken)
-
-        const sessions = await this.sessionRepository.findActiveByUserId(currentUserId)
+        const sessions = await this.sessionRepository.findActiveByUserId(auth.userId)
 
         return {
-            currentSessionId,
+            currentSessionId: auth.sessionId,
             sessions
         }
     }
 
     async revokeUserSession(
         sessionId: string,
-        accessToken: string,
+        auth: AuthContext,
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<void>{
 
-        const { currentUserId, currentSessionId } = await this.authenticateSession(accessToken)
-
-        if (sessionId === currentSessionId) {
+        if (sessionId === auth.sessionId) {
             throw new BadRequestError("Use the logout endpoint to revoke the current session")
         }
 
@@ -280,7 +240,7 @@ export class SessionService {
             throw new UnauthorizedError("Invalid access token")
         }
 
-        if (session.userId !== currentUserId){
+        if (session.userId !== auth.userId){
             throw new UnauthorizedError("Invalid access token")
         }
 
@@ -290,22 +250,22 @@ export class SessionService {
 
         if(session.revokedAt){
             logger.info({
-                currentUserId,
-                currentSessionId
+                userId: auth.userId,
+                sessionId
             }, "Session is already revoked")           
             return
         }
 
         await this.revokeSession(
             sessionId, 
-            currentUserId, 
+            auth.userId, 
             metadata, 
             AuditAction.USER_LOGGED_OUT
         )
 
         logger.info({
-            currentUserId,
-            currentSessionId,
+            userId: auth.userId,
+            currentSessionId: auth.sessionId,
             revokedSessionId: sessionId
         }, "User session revoked")
     }

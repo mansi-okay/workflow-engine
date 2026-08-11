@@ -1,5 +1,17 @@
 import { User, Prisma, Session } from "@prisma/client";
 
+export interface AccessTokenPayload{
+    sub: string,
+    sid: string,
+    type: "access"
+}
+
+export interface RefreshTokenPayload{
+    sub: string,
+    sid:string,
+    type:"refresh"
+}
+
 export interface AuthResult {
     user: User
     accessToken: string
@@ -27,10 +39,4 @@ export type SessionWithUser = Prisma.SessionGetPayload<{
 export interface SessionsResult {
     currentSessionId: string
     sessions: Session[]
-}
-
-export interface SessionAuthentication {
-    currentUserId: string
-    currentSessionId: string
-    session: SessionWithUser
 }

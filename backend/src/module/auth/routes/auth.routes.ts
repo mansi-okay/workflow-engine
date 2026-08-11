@@ -2,7 +2,7 @@ import { Router } from "express";
 import { validate } from "../../../shared/middleware/validate.middleware.js";
 import { registerSchema } from "../validations/register.schema.js";
 import { asyncHandler } from "../../../shared/utils/common/asyncHandler.js";
-import { authController } from "../../../container/auth.container.js";
+import { authController, authenticateUser } from "../../../container/auth.container.js";
 import { verifyEmailSchema } from "../validations/verify_email.schema.js";
 import { resendVerificationEmailSchema } from "../validations/resend_verification.schema.js";
 import { loginSchema } from "../validations/login.schema.js";
@@ -20,10 +20,11 @@ router.post("/resend-verification-email",
 )
 router.post("/login", validate(loginSchema, "body"), asyncHandler(authController.login))
 router.post("/refresh", asyncHandler(authController.refresh))
-router.post("/logout", asyncHandler(authController.logout))
-router.post("/logout-all", asyncHandler(authController.logoutAll))
-router.get("/sessions", asyncHandler(authController.getSessions))
-router.delete("/sessions/:sessionId", 
+router.post("/logout", asyncHandler(authenticateUser), asyncHandler(authController.logout))
+router.post("/logout-all", asyncHandler(authenticateUser), asyncHandler(authController.logoutAll))
+router.get("/sessions", asyncHandler(authenticateUser), asyncHandler(authController.getSessions))
+router.delete("/sessions/:sessionId",
+    asyncHandler(authenticateUser), 
     validate(revokeSessionSchema, "params"), 
     asyncHandler(authController.revokeUserSession)
 )

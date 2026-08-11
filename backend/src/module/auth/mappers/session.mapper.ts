@@ -6,9 +6,9 @@ export const toSessionResponseDto = (
     currentSessionId: string
 ): SessionResponseDto => ({
     id: session.id,
-    ipAddress: session.ipAddress ?? undefined,
-    userAgent: session.userAgent ?? undefined,
-    deviceName: session.deviceName ?? undefined,
+    ipAddress: session.ipAddress,
+    userAgent: session.userAgent,
+    deviceName: session.deviceName,
     createdAt: session.createdAt.toISOString(),
     lastUsedAt: session.lastUsedAt.toISOString(),
     expiresAt: session.expiresAt.toISOString(),

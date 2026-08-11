@@ -29,3 +29,9 @@ export class ConflictError extends AppError{
         super(message,409)
     }
 }
+
+export class SlugConflictError extends ConflictError {
+    constructor(message = "Organization slug already exists") {
+        super(message)
+    }
+}

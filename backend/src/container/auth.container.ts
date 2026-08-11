@@ -5,8 +5,9 @@ import { PasswordService } from "../module/auth/services/password.service.js";
 import { VerificationService } from "../module/auth/services/verification.service.js";
 import { UserRepository } from "../module/users/repository/user.repository.js";
 import { AuditRepository } from "../shared/audit/audit.repository.js";
+import { authenticate } from "../shared/middleware/authenticate.middleware.js";
 import { unitOfWork } from "./database.container.js";
-import { sessionService } from "./session.container.js";
+import { sessionRepository, sessionService } from "./session.container.js";
 
 const userRepository = new UserRepository()
 const verificationTokenRepository = new VerificationTokenRepository()
@@ -37,3 +38,5 @@ export const authController = new AuthController(
     sessionService,
     passwordService
 )
+
+export const authenticateUser = authenticate(sessionRepository)

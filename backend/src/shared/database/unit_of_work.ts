@@ -5,6 +5,8 @@ import { VerificationTokenRepository } from "../../module/auth/repository/verifi
 import { UserRepository } from "../../module/users/repository/user.repository.js";
 import { AuditRepository } from "../audit/audit.repository.js";
 import { TransactionRepositories } from "./transaction_repositories.js";
+import { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
+import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
 
 export class UnitOfWork {
 
@@ -23,7 +25,9 @@ export class UnitOfWork {
             users: new UserRepository(tx),
             sessions: new SessionRepository(tx),
             verificationTokens: new VerificationTokenRepository(tx),
-            auditLogs: new AuditRepository(tx)
+            auditLogs: new AuditRepository(tx),
+            organizations: new OrganizationRepository(tx),
+            memberships: new MembershipRepository(tx)
         }
     }
 }

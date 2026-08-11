@@ -9,7 +9,7 @@ export class UserRepository{
     ) {}
 
     async findByEmail(email: string): Promise<User | null>{
-        return this.db.user.findUnique({
+        return this.db.user.findFirst({
             where: {
                 email,
                 deletedAt: null

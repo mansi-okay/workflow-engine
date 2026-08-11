@@ -1,5 +1,5 @@
-import { User, Role } from "@prisma/client";
-import { AccessTokenPayload, RefreshTokenPayload } from "../../types/auth.types.js";
+import { User } from "@prisma/client";
+import { AccessTokenPayload, RefreshTokenPayload } from "../../../module/auth/types/auth.types.js";
 
 export const toAccessPayload = (user : User, sessionId: string): AccessTokenPayload => ({
     sub: user.id,

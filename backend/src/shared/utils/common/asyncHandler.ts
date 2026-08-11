@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { AsyncController } from "../types/express.js";
+import { AsyncController } from "../../types/express.types.js";
 
 export const asyncHandler = (fn: AsyncController): RequestHandler => {
     return (req,res,next) => {
