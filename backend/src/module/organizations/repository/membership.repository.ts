@@ -1,6 +1,6 @@
-import { Membership, Organization, Prisma, PrismaClient } from "@prisma/client";
+import { Membership, Organization, Prisma, PrismaClient, Role } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
-import { MembershipWithOrganization } from "../types/organization.types.js";
+import { MembershipWithOrganization, MembershipWithUser } from "../types/organization.types.js";
 
 export class MembershipRepository{
     constructor(private readonly db: 
@@ -40,6 +40,68 @@ export class MembershipRepository{
             include: {
                 organization: true
             }
+        })
+    }
+
+    async findByOrganizationId(organizationId: string): Promise<MembershipWithUser[]> {
+        return this.db.membership.findMany({
+            where: {organizationId},
+            include: {
+                user:{
+                    select:{
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
+            }
+        })
+    }
+
+    async findByIdAndOrganization(
+        memberId: string, 
+        organizationId: string
+    ): Promise<Membership | null>{
+        return this.db.membership.findFirst({
+            where: {
+                id: memberId,
+                organizationId
+            }
+        })
+    }
+    
+    async updateRole(
+        memberId: string,
+        role: Role
+    ): Promise<Membership>{
+        return this.db.membership.update({
+            where: {id: memberId},
+            data: {role}
+        })
+    }
+
+    async updateRoleWithUser(
+        memberId: string,
+        role: Role
+    ): Promise<MembershipWithUser>{
+        return this.db.membership.update({
+            where: {id: memberId},
+            data: {role},
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
+            }
+        })
+    } 
+
+    async deleteById(memberId: string): Promise<Membership>{
+        return this.db.membership.delete({
+            where: { id: memberId }
         })
     }
 }

@@ -1,8 +1,8 @@
 import { Role } from "@prisma/client";
-import { AsyncController } from "../types/express.types.js";
+import { AsyncController } from "../../../shared/types/express.types.js";
 import { NextFunction, Request, Response } from "express";
-import { getMembershipContext } from "../utils/http/get_membership_context.js";
-import { ForbiddenError } from "../error/HttpErrors.js";
+import { getMembershipContext } from "../../../shared/utils/http/get_membership_context.js";
+import { ForbiddenError } from "../../../shared/error/HttpErrors.js";
 
 export const authorizeOrganizationRole = (
     ...allowedRoles: Role[]

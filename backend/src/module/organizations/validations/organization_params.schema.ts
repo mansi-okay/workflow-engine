@@ -4,4 +4,4 @@ export const organizationParamsSchema = z.object({
     organizationId: z.cuid2()
 })
 
-export type OrganizationParamsInput = z.infer<typeof or
+export type OrganizationParamsInput = z.infer<typeof organizationParamsSchema>

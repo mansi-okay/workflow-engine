@@ -9,8 +9,7 @@ import { AuditAction, Organization, Role } from "@prisma/client";
 import { MembershipRepository } from "../repository/membership.repository.js";
 import { ConflictError, NotFoundError, SlugConflictError } from "../../../shared/error/HttpErrors.js";
 import { UpdateOrganizationInput } from "../validations/update_organization.schema.js";
-import { UpdateOrganizationData }
- from "../types/organization.types.js";
+import { UpdateOrganizationData } from "../types/organization.types.js";
 
 export class OrganizationService{
     constructor(
@@ -110,6 +109,8 @@ export class OrganizationService{
         return await this.membershipRepository.findOrganizationsByUserId(userId)
     }
 
+    // Organization context is used for authorization, not as the full organization record
+    // Then fetch the full organization here so the service returns complete data for the response DTO
     async getOrganizationById(
         organizationId: string
     ): Promise<Organization>{

@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express"
-import { AsyncController } from "../types/express.types.js"
-import { OrganizationParamsInput } from "../../module/organizations/validations/organization_params.schema.js"
-import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js"
-import { getAuthContext } from "../utils/http/get_auth_context.js"
-import { NotFoundError } from "../error/HttpErrors.js"
+import { AsyncController } from "../../../shared/types/express.types.js"
+import { OrganizationParamsInput } from "../validations/organization_params.schema.js"
+import { MembershipRepository } from "../repository/membership.repository.js"
+import { getAuthContext } from "../../../shared/utils/http/get_auth_context.js"
+import { NotFoundError } from "../../../shared/error/HttpErrors.js"
 
 export const loadOrganizationContext = (
     membershipRepository: MembershipRepository

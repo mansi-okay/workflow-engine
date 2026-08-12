@@ -1,7 +1,7 @@
 import { AuditAction, User } from "@prisma/client";
 import { SessionMetadata } from "../../../shared/types/session.types.js";
 import { createId } from "@paralleldrive/cuid2";
-import { generateAccessToken,generateRefreshToken, hashToken, verifyAccessToken, verifyRefreshToken, verifyTokenHash } from "../../../shared/utils/auth/token.js";
+import { generateAccessToken,generateRefreshToken, hashToken, verifyRefreshToken, verifyTokenHash } from "../../../shared/utils/auth/token.js";
 import { toAccessPayload, toRefreshPayload } from "../../../shared/utils/auth/payload.mapper.js";
 import { SessionRepository } from "../repository/session.repository.js";
 import { createExpirationDate } from "../../../shared/utils/date/expiration.js";
