@@ -9,7 +9,7 @@ import { authenticate } from "../shared/middleware/authenticate.middleware.js";
 import { unitOfWork } from "./database.container.js";
 import { sessionRepository, sessionService } from "./session.container.js";
 
-const userRepository = new UserRepository()
+export const userRepository = new UserRepository()
 const verificationTokenRepository = new VerificationTokenRepository()
 const auditRepository = new AuditRepository()
 

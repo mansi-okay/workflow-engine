@@ -12,6 +12,8 @@ import { updateMembershipBodySchema, updateMembershipParamsSchema } from "../val
 import { transferOwnershipParamsSchema } from "../validations/transfer_ownership.schema.js";
 import { removeMemberParamsSchema } from "../validations/remove_member.schema.js";
 import { leaveOrganizationParamsSchema } from "../validations/leave_organization.schema.js";
+import { createInvitationBodySchema } from "../validations/create_invitation.schema.js";
+import { revokeInvitationParamsSchema } from "../validations/revoke_invitation.schema.js";
 
 const router = Router()
 
@@ -88,6 +90,32 @@ router.delete("/:organizationId/leave",
     // OWNER cannot leave directly; transfer ownership first.
     asyncHandler(authorizeOrganizationRole(Role.MEMBER, Role.ADMIN)),
     asyncHandler(organizationController.leaveOrganization)
+)
+
+router.route("/:organizationId/invitations")
+.post(
+    asyncHandler(authenticateUser),
+    validate(organizationParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
+    validate(createInvitationBodySchema, "body"),
+    asyncHandler(organizationController.createInvitation)
+)
+.get(
+    asyncHandler(authenticateUser),
+    validate(organizationParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
+    asyncHandler(organizationController.getInvitations)
+)
+
+router.delete(
+    "/:organizationId/invitations/:invitationId",
+    asyncHandler(authenticateUser),
+    validate(revokeInvitationParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
+    asyncHandler(organizationController.revokeInvitation)
 )
 
 export default router

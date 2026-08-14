@@ -13,7 +13,8 @@ const envSchema = z.object({
   REFRESH_TOKEN_EXPIRY: durationSchema.default("7d"),
   TOKEN_HASH_SECRET: z.string().min(32, "TOKEN_HASH_SECRET is too short"),
   EMAIL_VERIFICATION_TOKEN_EXPIRY: durationSchema.default("24h"),
-  PASSWORD_RESET_TOKEN_EXPIRY:durationSchema.default("30m")
+  PASSWORD_RESET_TOKEN_EXPIRY:durationSchema.default("30m"),
+  INVITATION_TOKEN_EXPIRY:durationSchema.default("7d")
 })
 
 const parsed = envSchema.safeParse(process.env)

@@ -14,11 +14,17 @@ import { getMembershipContext } from "../../../shared/utils/http/get_membership_
 import { TransferOwnershipParamsInput } from "../validations/transfer_ownership.schema.js";
 import { RemoveMemberParamsInput } from "../validations/remove_member.schema.js";
 import { LeaveOrganizationParamsInput } from "../validations/leave_organization.schema.js";
+import { OrganizationParamsInput } from "../validations/organization_params.schema.js";
+import { CreateInvitationBodyInput } from "../validations/create_invitation.schema.js";
+import { InvitationService } from "../services/invitation.service.js";
+import { toInvitationResponseDto } from "../mappers/invitation.mapper.js";
+import { RevokeInvitationParamsInput } from "../validations/revoke_invitation.schema.js";
 
 export class OrganizationController{
     constructor(
         private readonly organizationService: OrganizationService,
-        private readonly membershipService: MembershipService
+        private readonly membershipService: MembershipService,
+        private readonly invitationService: InvitationService
     ){}
 
     createOrganization: AsyncController = async (req: Request, res: Response): Promise<void> => {
@@ -228,6 +234,61 @@ export class OrganizationController{
                 leftMember: toMembershipResponseDto(result)
             }
         })
+    }
 
+    createInvitation: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {userId} = getAuthContext(req)
+        const {organizationId} = req.params as OrganizationParamsInput
+        const metadata = getSessionMetadata(req)
+        const {email, role} = req.body as CreateInvitationBodyInput
+
+        const result = await this.invitationService.createInvitation(
+            organizationId,
+            email,
+            userId,
+            role,
+            metadata,
+            req.logger
+        )
+
+        res.status(201).json({
+            success: true,
+            message: "Invitation sent successfully",
+            data: {
+                invitation : toInvitationResponseDto(result)
+            }
+        })
+    }
+
+    getInvitations: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {organizationId} = req.params as OrganizationParamsInput
+
+        const invitations = await this.invitationService.getInvitations(organizationId)
+
+        const invitationDtos = invitations.map(invitation => toInvitationResponseDto(invitation))
+
+        res.status(200).json({
+            success: true,
+            message: "Fetched invitations succesfully",
+            data: {
+                invitations: invitationDtos
+            }
+        })
+    }
+
+    revokeInvitation: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {userId} = getAuthContext(req)
+        const metadata = getSessionMetadata(req)
+        const {organizationId, invitationId} = req.params as RevokeInvitationParamsInput
+
+        await this.invitationService.revokeInvitation(
+            organizationId,
+            invitationId,
+            userId,
+            metadata,
+            req.logger
+        )
+
+        res.status(204).send()
     }
 }

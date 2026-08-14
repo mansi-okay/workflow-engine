@@ -7,6 +7,7 @@ import { AuditRepository } from "../audit/audit.repository.js";
 import { TransactionRepositories } from "./transaction_repositories.js";
 import { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
 import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
+import { InvitationRepository } from "../../module/organizations/repository/invitation.repository.js";
 
 export class UnitOfWork {
 
@@ -27,7 +28,8 @@ export class UnitOfWork {
             verificationTokens: new VerificationTokenRepository(tx),
             auditLogs: new AuditRepository(tx),
             organizations: new OrganizationRepository(tx),
-            memberships: new MembershipRepository(tx)
+            memberships: new MembershipRepository(tx),
+            invitations: new InvitationRepository(tx)
         }
     }
 }

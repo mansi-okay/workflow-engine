@@ -146,7 +146,7 @@ model Membership {
 model Invitation {
   id String @id @default(cuid())
   email String
-  token String @unique
+  hashedToken String @unique
 
   organizationId String
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
