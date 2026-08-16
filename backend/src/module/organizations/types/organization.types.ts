@@ -29,3 +29,15 @@ export interface TransferOwnership{
     previousOwner: MembershipWithUser
     newOwner: MembershipWithUser
 }
+
+export interface PublicInvitation {
+    email: string
+    role: Role
+    organization: {
+        id: string,
+        name: string
+    }
+    expiresAt: Date,
+    revokedAt: Date | null,
+    acceptedAt: Date | null
+}

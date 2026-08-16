@@ -17,8 +17,10 @@ import { LeaveOrganizationParamsInput } from "../validations/leave_organization.
 import { OrganizationParamsInput } from "../validations/organization_params.schema.js";
 import { CreateInvitationBodyInput } from "../validations/create_invitation.schema.js";
 import { InvitationService } from "../services/invitation.service.js";
-import { toInvitationResponseDto } from "../mappers/invitation.mapper.js";
+import { toInvitationResponseDto, toPublicInvitationResponseDto } from "../mappers/invitation.mapper.js";
 import { RevokeInvitationParamsInput } from "../validations/revoke_invitation.schema.js";
+import { GetInvitationParamsInput } from "../validations/get_invitation.schema.js";
+import { AcceptInvitationParamsInput } from "../validations/accept_invitation.schema.js";
 
 export class OrganizationController{
     constructor(
@@ -290,5 +292,40 @@ export class OrganizationController{
         )
 
         res.status(204).send()
+    }
+
+    getPublicInvitation: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {token} = req.params as GetInvitationParamsInput
+
+        const result = await this.invitationService.getPublicInvitation(token)
+
+        res.status(200).json({
+            success: true,
+            message: "Invitation fetched successfully",
+            data: {
+                invitation: toPublicInvitationResponseDto(result)
+            }
+        })
+    }
+
+    acceptInvitation: AsyncController = async(req: Request, res: Response): Promise<void> => {
+        const {token} = req.params as AcceptInvitationParamsInput
+        const {userId} = getAuthContext(req)
+        const metadata = getSessionMetadata(req)
+
+        const result = await this.invitationService.acceptInvitation(
+            token,
+            userId,
+            metadata,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Invitatation accepted successfully",
+            data: {
+                membership: toMembershipResponseDto(result)
+            }
+        })
     }
 }

@@ -1,5 +1,7 @@
 import { Invitation, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
+import { hashToken } from "../../../shared/utils/auth/token.js";
+import { PublicInvitation } from "../types/organization.types.js";
 
 export class InvitationRepository{
     constructor( private readonly db:
@@ -52,6 +54,42 @@ export class InvitationRepository{
         return this.db.invitation.update({
             where: {id: invitationId},
             data: {revokedAt: new Date()}
+        })
+    }
+
+    async findPublicByRawToken(token: string): Promise<PublicInvitation | null>{
+        return this.db.invitation.findUnique({
+            where: {hashedToken: hashToken(token)},
+            include: {
+                organization: {
+                    select :{
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        })
+    }
+
+    async markAccepted(
+        id: string,
+        acceptedAt: Date
+    ): Promise<Invitation>{
+        return this.db.invitation.update({
+            where: {
+                id,
+                acceptedAt: null,
+                revokedAt: null
+            },
+            data: {acceptedAt}
+        })
+    }
+
+    async findByRawToken(
+        token: string
+    ): Promise<Invitation | null>{
+        return this.db.invitation.findUnique({
+            where: {hashedToken: hashToken(token)}
         })
     }
 }

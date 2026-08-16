@@ -11,3 +11,13 @@ export interface InvitationResponseDto {
     revokedAt: string | null
     acceptedAt: string | null
 }
+
+export interface PublicInvitationResponseDto {
+    email: string
+    role: Role
+    organization:{
+        id: string,
+        name: string
+    }
+    expiresAt: string
+}

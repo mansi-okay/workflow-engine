@@ -10,6 +10,7 @@ import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
 import { createExpirationDate } from "../../../shared/utils/date/expiration.js";
 import { env } from "../../../config/env.js";
+import { PublicInvitation } from "../types/organization.types.js";
 
 export class InvitationService{
     constructor(
@@ -142,4 +143,113 @@ export class InvitationService{
         }, "Invitation revoked")
     }
 
+    async getPublicInvitation(
+        token: string
+    ): Promise<PublicInvitation>{
+        const invitation = await this.invitationRepository.findPublicByRawToken(token)
+
+        if (!invitation){
+            throw new NotFoundError("Invalid token")
+        }
+
+        if (invitation.acceptedAt){
+            throw new ConflictError("Invitation has been accepted")
+        }
+
+        if (invitation.revokedAt){
+            throw new ConflictError("Invitation has been revoked")
+        }
+
+        const now = new Date()
+
+        if (invitation.expiresAt <= now){
+            throw new ConflictError("Invitation is expired")
+        }
+
+        return invitation
+    }
+
+    async acceptInvitation(
+        token: string,
+        currentUserId: string,
+        metadata: SessionMetadata,
+        logger: Logger
+    ){
+        // TODO: revisit invitation state transitions when implementing idempotency/concurrency
+
+        const invitation = await this.invitationRepository.findByRawToken(token)
+
+        if (!invitation){
+            throw new NotFoundError("Invitation not found")
+        }
+
+        if( invitation.acceptedAt){
+            throw new ConflictError("Token has been accepted")
+        }
+
+        if (invitation.revokedAt){
+            throw new ConflictError("Token has been revoked")
+        }
+
+        const now = new Date()
+
+        if(invitation.expiresAt <= now){
+            throw new ConflictError("Invitation is expired")
+        }
+
+        const user = await this.userRepository.findById(currentUserId)
+
+        if (!user){
+            throw new NotFoundError("User not found")
+        }
+
+        if (user){
+            const existingMember = await this.membershipRepository.findByUserAndOrganization(
+                currentUserId,
+                invitation.organizationId
+            )
+
+            if (existingMember){
+                throw new ConflictError("User is already an existing member")
+            }
+        }
+
+        if (user.email !== invitation.email){
+            throw new ConflictError("Invalid token")
+        }
+
+
+        const membership = await this.unitOfWork.transaction(async(repos) => {
+            const membership = await repos.memberships.create({
+                userId: user.id,
+                organizationId: invitation.organizationId,
+                role: invitation.role
+            })
+
+            await repos.invitations.markAccepted(invitation.id, new Date())
+
+            await repos.auditLogs.create({
+                action: AuditAction.INVITATION_ACCEPTED,
+                userId: currentUserId,
+                ipAddress: metadata.ipAddress,
+                userAgent: metadata.userAgent,
+                metadata: {
+                    organizationId: invitation.organizationId,
+                    invitationId: invitation.id,
+                    membershipId: membership.id,
+                    role: invitation.role
+                }
+            })
+
+            return membership
+        })
+
+        logger.info({
+            currentUserId,
+            role: membership.role,
+            organizationId: membership.organizationId,
+        }, "Invitation accepted")
+
+        return membership
+    }
 }
