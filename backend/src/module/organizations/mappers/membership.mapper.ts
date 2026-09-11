@@ -1,5 +1,5 @@
 import { Membership } from "@prisma/client"
-import { MembershipResponseDto, MembershipWithUserResponseDto } from "../dtos/membership_response.dto.js"
+import { type MembershipResponseDto, type MembershipWithUserResponseDto } from "../dtos/membership_response.dto.js"
 import { MembershipWithUser } from "../types/organization.types.js"
 
 export const toMembershipWithUserResponseDto = (

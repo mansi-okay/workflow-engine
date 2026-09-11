@@ -5,6 +5,7 @@ import { MembershipRepository } from "../../module/organizations/repository/memb
 import { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
 import { UserRepository } from "../../module/users/repository/user.repository.js";
 import { AuditRepository } from "../audit/audit.repository.js";
+import type { IdempotencyRepository } from "../idempotency/idempotency.repository.js";
 
 export interface TransactionRepositories {
     users: UserRepository
@@ -14,4 +15,5 @@ export interface TransactionRepositories {
     organizations: OrganizationRepository
     memberships: MembershipRepository
     invitations: InvitationRepository
+    idempotency: IdempotencyRepository
 }

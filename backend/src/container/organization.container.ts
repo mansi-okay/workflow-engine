@@ -8,6 +8,7 @@ import { MembershipService } from "../module/organizations/services/membership.s
 import { InvitationService } from "../module/organizations/services/invitation.service.js";
 import { userRepository } from "./auth.container.js";
 import { InvitationRepository } from "../module/organizations/repository/invitation.repository.js";
+import { idempotencyService } from "./idempotency.container.js";
 
 const membershipRepository = new MembershipRepository()
 const organizationRepository = new OrganizationRepository()
@@ -16,19 +17,21 @@ const invitationRepository = new InvitationRepository()
 const organizationService = new OrganizationService(
     unitOfWork,
     membershipRepository,
-    organizationRepository
+    organizationRepository,
+    idempotencyService
 )
 
 const membershipService = new MembershipService(
     membershipRepository,
-    unitOfWork
+    unitOfWork,
+    idempotencyService
 )
 
 const invitationService = new InvitationService(
     userRepository,
     invitationRepository,
-    membershipRepository,
-    unitOfWork
+    unitOfWork,
+    idempotencyService
 )
 
 export const organizationController = new OrganizationController(

@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client"
 
-export interface InvitationResponseDto {
+export type InvitationResponseDto = {
     id: string
     email: string
     organizationId: string

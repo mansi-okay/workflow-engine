@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client"
 
-export interface MembershipWithUserResponseDto{
+export type MembershipWithUserResponseDto = {
     id: string
     role: Role
     joinedAt: string
@@ -11,7 +11,7 @@ export interface MembershipWithUserResponseDto{
     }
 }
 
-export interface MembershipResponseDto{
+export type MembershipResponseDto = {
   id: string
   userId: string
   organizationId: string

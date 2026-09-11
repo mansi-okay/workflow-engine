@@ -17,3 +17,7 @@ export interface MembershipContext {
     organizationId: string
     role: Role
 }
+
+export interface IdempotencyContext {
+    recordId: string
+}

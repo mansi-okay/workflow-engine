@@ -1,6 +1,6 @@
 import "express-serve-static-core";
 import { Logger } from "pino";
-import { AuthContext, MembershipContext, OrganizationContext } from "./request_context.js";
+import { AuthContext, MembershipContext, OrganizationContext, type IdempotencyContext } from "./request_context.js";
 
 declare module "express-serve-static-core"{
   export interface Request{
@@ -8,6 +8,7 @@ declare module "express-serve-static-core"{
     logger: Logger
     auth?: AuthContext
     organization?: OrganizationContext
-    membership? :MembershipContext
+    membership?:MembershipContext
+    idempotency?: IdempotencyContext
   }
 }

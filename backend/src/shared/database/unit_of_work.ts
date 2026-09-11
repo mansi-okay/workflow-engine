@@ -8,6 +8,7 @@ import { TransactionRepositories } from "./transaction_repositories.js";
 import { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
 import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
 import { InvitationRepository } from "../../module/organizations/repository/invitation.repository.js";
+import { IdempotencyRepository } from "../idempotency/idempotency.repository.js";
 
 export class UnitOfWork {
 
@@ -29,7 +30,8 @@ export class UnitOfWork {
             auditLogs: new AuditRepository(tx),
             organizations: new OrganizationRepository(tx),
             memberships: new MembershipRepository(tx),
-            invitations: new InvitationRepository(tx)
+            invitations: new InvitationRepository(tx),
+            idempotency: new IdempotencyRepository(tx)
         }
     }
 }

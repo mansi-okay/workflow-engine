@@ -35,3 +35,9 @@ export class SlugConflictError extends ConflictError {
         super(message)
     }
 }
+
+export class IdempotencyKeyConflictError extends ConflictError{
+    constructor(message = "Idempotency key has already been used for a different request"){
+        super(message)
+    }
+}

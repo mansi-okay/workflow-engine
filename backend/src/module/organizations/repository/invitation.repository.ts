@@ -38,23 +38,31 @@ export class InvitationRepository{
         })
     }
 
-    async findByIdAndOrganization(
+    async findByIdAndOrganizationForUpdate(
         invitationId: string,
         organizationId: string
     ): Promise<Invitation | null>{
-        return this.db.invitation.findFirst({
-            where: {
-                id: invitationId,
-                organizationId
-            }
-        })
+        const invitation = await this.db.$queryRaw<Invitation[]>`
+        SELECT *
+        FROM "Invitation"
+        WHERE "id" = ${invitationId} AND "organizationId" = ${organizationId}
+        FOR UPDATE
+        `
+
+        return invitation[0] ?? null
     }
 
-    async revokeById( invitationId: string): Promise<Invitation>{
-        return this.db.invitation.update({
-            where: {id: invitationId},
+    async revokeById( invitationId: string): Promise<Boolean>{
+        const result = await this.db.invitation.updateMany({
+            where: {
+                id: invitationId,
+                revokedAt: null,
+                acceptedAt: null
+            },
             data: {revokedAt: new Date()}
         })
+
+        return result.count === 1
     }
 
     async findPublicByRawToken(token: string): Promise<PublicInvitation | null>{
@@ -74,8 +82,8 @@ export class InvitationRepository{
     async markAccepted(
         id: string,
         acceptedAt: Date
-    ): Promise<Invitation>{
-        return this.db.invitation.update({
+    ): Promise<boolean>{
+        const result =  await this.db.invitation.updateMany({
             where: {
                 id,
                 acceptedAt: null,
@@ -83,13 +91,19 @@ export class InvitationRepository{
             },
             data: {acceptedAt}
         })
+
+        return result.count === 1
     }
 
-    async findByRawToken(
+    async findByRawTokenForUpdate(
         token: string
-    ): Promise<Invitation | null>{
-        return this.db.invitation.findUnique({
-            where: {hashedToken: hashToken(token)}
-        })
+    ):Promise<Invitation | null>{
+        const invitation =  await this.db.$queryRaw<Invitation[]>`
+        SELECT * 
+        FROM "Invitation"
+        WHERE "hashedToken" = ${hashToken(token)}
+        FOR UPDATE
+        `
+        return invitation[0] ?? null
     }
 }

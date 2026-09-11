@@ -15,7 +15,7 @@ export class OrganizationRepository{
             return await this.db.organization.create({data})
 
         } catch (error) {
-            if (isPrismaUniqueConstraintError(error,"slug")){
+            if (isPrismaUniqueConstraintError(error,["slug"])){
                 throw new SlugConflictError()
             }
             throw error
@@ -42,6 +42,16 @@ export class OrganizationRepository{
         })
     }
 
+    async findByIdForUpdate(organizationId: string): Promise<Organization | null> {
+        const result = await this.db.$queryRaw<Organization[]>`
+        SELECT * FROM "Organization"
+        WHERE "id" = ${organizationId}
+        FOR UPDATE
+        `
+
+        return result[0] ?? null
+    }
+
     async update(
         organizationId: string,
         data: UpdateOrganizationData
@@ -52,7 +62,7 @@ export class OrganizationRepository{
                 data
             })            
         } catch (error) {
-            if(isPrismaUniqueConstraintError(error,"slug")){
+            if(isPrismaUniqueConstraintError(error,["slug"])){
                 throw new SlugConflictError()
             } 
             throw error

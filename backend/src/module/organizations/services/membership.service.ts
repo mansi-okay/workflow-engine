@@ -5,11 +5,14 @@ import { SessionMetadata } from "../../../shared/types/session.types.js";
 import { Logger } from "pino";
 import { ForbiddenError, NotFoundError } from "../../../shared/error/HttpErrors.js";
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
+import { toMembershipWithUserResponseDto } from "../mappers/membership.mapper.js";
+import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 
 export class MembershipService {
     constructor(
         private readonly membershipRepository: MembershipRepository,
-        private readonly unitOfWork: UnitOfWork
+        private readonly unitOfWork: UnitOfWork,
+        private readonly idempotencyService: IdempotencyService
     ){}
 
     async getMembers(organizationId: string): Promise<MembershipWithUser[]>{
@@ -25,50 +28,72 @@ export class MembershipService {
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<Membership>{
-        const targetMember = await this.membershipRepository.findByIdAndOrganization(
-            memberId,
-            organizationId
-        )
 
-        if (!targetMember){
-            throw new NotFoundError("Member not found")
-        }
+        const result = await this.unitOfWork.transaction(async(repos) => {
 
-        const oldRole: Role = targetMember.role
+            const memberships = await repos.memberships.findCurrentUserAndTargetForUpdate(
+                currentUserId,
+                memberId,
+                organizationId
+            )
 
+            const currentUserMembership = memberships.find(
+                membership => membership.userId === currentUserId
+            )
 
-        // OWNER: 
-        // ADMIN <-> MEMBER
-        // cannot modify OWNER
-        // cannot assign OWNER
+            if (!currentUserMembership) {
+                throw new NotFoundError("Current user membership not found")
+            }
 
-        if (targetMember.role === newRole){
-            throw new ForbiddenError("Provide a new role")
-        }
+            const targetMember = memberships.find(
+                membership => membership.id === memberId
+            )
 
-        if (currentUserRole === Role.OWNER && targetMember.role === Role.OWNER){
+            if (!targetMember) {
+                throw new NotFoundError("Member not found")
+            }
+
+            // Use the role read from the locked database row. Do not rely on the role that was loaded earlier
+            const currentRole = currentUserMembership.role
+
+            const oldRole: Role = targetMember.role
+
+            // OWNER: 
+            // ADMIN <-> MEMBER
+            // cannot modify OWNER
+            // cannot assign OWNER
+
+            if (oldRole === newRole){
+                throw new ForbiddenError("Provide a new role")
+            }
+
+            if (currentRole === Role.OWNER && oldRole === Role.OWNER){
             throw new ForbiddenError("Owner can not change their role. Use transer-ownership endpoint instead")
-        }
+            }
 
-        if (currentUserRole === Role.OWNER && newRole === Role.OWNER){
-            throw new ForbiddenError("Owner can not change their role. Use transer-ownership endpoint instead")
-        }
+            if (currentRole === Role.OWNER && newRole === Role.OWNER){
+                throw new ForbiddenError("Owner can not change their role. Use transer-ownership endpoint instead")
+            }
 
-        // ADMIN:
-        // MEMBER -> ADMIN
-        // cannot modify ADMIN
-        // cannot modify OWNER
-        // cannot assign OWNER
+            
+            // ADMIN:
+            // MEMBER -> ADMIN
+            // cannot modify ADMIN
+            // cannot modify OWNER
+            // cannot assign OWNER
 
-        if(currentUserRole === Role.ADMIN && targetMember.role !== Role.MEMBER){
-            throw new ForbiddenError("Admins can only change MEMBER role")
-        }
+                
+            if(currentRole === Role.ADMIN && oldRole !== Role.MEMBER){
+                throw new ForbiddenError("Admins can only change MEMBER role")
+            }
 
-        if (currentUserRole === Role.ADMIN && newRole === Role.OWNER){
-            throw new ForbiddenError("Admins can not assign an OWNER")
-        }
+            if (currentRole === Role.ADMIN && newRole === Role.OWNER){
+                throw new ForbiddenError("Admins can not assign an OWNER")
+            }
 
-        const updatedMember = await this.unitOfWork.transaction(async(repos) => {
+            if (currentRole !== currentUserRole) {
+                throw new ForbiddenError("Your organization permissions have changed. Please retry")
+            }
 
             const update = await repos.memberships.updateRole(
                 memberId,
@@ -88,90 +113,133 @@ export class MembershipService {
                 }
             })
 
-            return update
+            return {
+                update,
+                oldRole,
+                currentRole
+            }
         })
 
         logger.info({
             organizationId,
             memberId,
-            oldRole,
+            oldRole: result.oldRole,
             newRole,
             updatedBy: {
                 id: currentUserId,
-                role: currentUserRole
+                role: result.currentRole
             }
         }, "Updated member role")
 
-        return updatedMember
+        return result.update
     }
 
     async transferOwnership(
         organizationId: string,
-        currentOwnerMemberId: string,
         memberId: string,
         currentUserId: string,
         metadata: SessionMetadata,
+        idempotencyRecordId: string,
         logger: Logger
     ): Promise<TransferOwnership>{
-        const targetMember = await this.membershipRepository.findByIdAndOrganization(
-            memberId,
-            organizationId
-        )
 
-        if(!targetMember){
-            throw new NotFoundError("Member not found")
-        }
+        try {
+            const updatedMembers = await this.unitOfWork.transaction(async(repos) => {
+    
+                const memberships = await repos.memberships.findCurrentUserAndTargetForUpdate(
+                    currentUserId,
+                    memberId,
+                    organizationId
+                )
+    
+                const currentOwner = memberships.find(
+                    membership => membership.userId === currentUserId
+                )
+    
+                if(!currentOwner){
+                    throw new NotFoundError("Current owner not found")
+                }
+    
+                if (currentOwner.role !== Role.OWNER) {
+                    throw new ForbiddenError("Current user is no longer the OWNER")
+                }
+    
+                const targetMember = memberships.find(
+                    membership => membership.id === memberId
+                )
+    
+                if(!targetMember){
+                    throw new NotFoundError("Member not found")
+                }
+    
+                if(currentOwner.userId === targetMember.userId){
+                    throw new ForbiddenError("Current user is already an OWNER")
+                }
+    
+                if(targetMember.role !== Role.ADMIN){
+                    throw new ForbiddenError("Only ADMIN can be trabsfered as OWNER")
+                }
+    
+                const previousOwner = await repos.memberships.updateRoleWithUser(
+                    currentOwner.id,
+                    Role.ADMIN
+                )
+    
+                const newOwner = await repos.memberships.updateRoleWithUser(
+                    memberId,
+                    Role.OWNER
+                )
+    
+                await repos.auditLogs.create({
+                    action: AuditAction.MEMBER_OWNERSHIP_TRANSFERRED,
+                    userId: currentOwner.userId,
+                    ipAddress: metadata.ipAddress,
+                    userAgent: metadata.userAgent,
+                    metadata: {
+                        organizationId,
+                        previousOwnerMemberId: currentOwner.id,
+                        newOwnerMemberId: memberId
+                    }
+                })
 
-        if(currentUserId === targetMember.userId){
-            throw new ForbiddenError("Current user is already an OWNER")
-        }
+                const resBody = {
+                    success: true,
+                    message: "Ownership transfered successfully",
+                    data: {
+                        previousOwner: toMembershipWithUserResponseDto(previousOwner),
+                        newOwner: toMembershipWithUserResponseDto(newOwner)
+                    }
+                }
 
-        if(targetMember.role !== Role.ADMIN){
-            throw new ForbiddenError("Only ADMIN can be trabsfered as OWNER")
-        }
-
-        const updatedMembers = await this.unitOfWork.transaction(async(repos) => {
-            const previousOwner = await repos.memberships.updateRoleWithUser(
-                currentOwnerMemberId,
-                Role.ADMIN
-            )
-
-            const newOwner = await repos.memberships.updateRoleWithUser(
-                memberId,
-                Role.OWNER
-            )
-
-            await repos.auditLogs.create({
-                action: AuditAction.MEMBER_OWNERSHIP_TRANSFERRED,
-                userId: currentUserId,
-                ipAddress: metadata.ipAddress,
-                userAgent: metadata.userAgent,
-                metadata: {
-                    organizationId,
-                    previousOwnerMemberId: currentOwnerMemberId,
-                    newOwnerMemberId: memberId
+                await repos.idempotency.markCompleted(
+                    idempotencyRecordId,
+                    200,
+                    resBody
+                )
+    
+                return {
+                    previousOwner,
+                    newOwner
                 }
             })
-
-            return {
-                previousOwner,
-                newOwner
-            }
-        })
-
-        logger.info({
-            organizationId,
-            previousOwner: {
-                userId: currentUserId,
-                memberId: currentOwnerMemberId  
-            },
-            newOwner: {
-                userId: targetMember.userId,
-                memberId: targetMember.id
-            }
-        }, "Ownership has been transfered")
-
-        return updatedMembers
+    
+            logger.info({
+                organizationId,
+                previousOwner: {
+                    userId: updatedMembers.previousOwner.userId,
+                    memberId: updatedMembers.previousOwner.id  
+                },
+                newOwner: {
+                    userId: updatedMembers.newOwner.userId,
+                    memberId: updatedMembers.newOwner.id
+                }
+            }, "Ownership has been transfered")
+    
+            return updatedMembers
+        } catch (error) {
+            await this.idempotencyService.markFailed(idempotencyRecordId)
+            throw error
+        }
     }
 
     async removeMember(
@@ -182,37 +250,58 @@ export class MembershipService {
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<Membership>{
-        const targetMember = await this.membershipRepository.findByIdAndOrganization(
-            memberId,
-            organizationId
-        )
-
-        if (!targetMember){
-            throw new NotFoundError("Member not found")
-        }
-
-        if (currentUserId === targetMember.userId){
-            throw new ForbiddenError(
-                "You can not remove yourself from the organization. Use leave endpoint instead")
-        }
-
-        // OWNER can remove MEMBER or ADMIN
-        // ADMIN can remove only MEMBER
-
-        if (targetMember.role === Role.OWNER){
-            throw new ForbiddenError("Owner cannot be removed")
-        }
-
-        if (currentUserRole === Role.ADMIN && targetMember.role !== Role.MEMBER){
-            throw new ForbiddenError("Admin can only remove MEMBER role")
-        }
 
         const removedMember = await this.unitOfWork.transaction(async(repos) => {
+            const memberships = await repos.memberships.findCurrentUserAndTargetForUpdate(
+                currentUserId,
+                memberId,
+                organizationId
+            )
+
+            const currentMember = memberships.find(
+                membership => membership.userId === currentUserId
+            )
+
+            if (!currentMember) {
+                throw new NotFoundError("Current user membership not found")
+            }
+
+            const targetMember = memberships.find(
+                membership => membership.id === memberId
+            )
+
+            if (!targetMember){
+                throw new NotFoundError("Member not found")
+            }
+
+            const currentRole = currentMember.role
+
+            if (currentRole !== currentUserRole) {
+                throw new ForbiddenError("Your organization permissions have changed")
+            }
+
+            if (currentMember.userId === targetMember.userId){
+                throw new ForbiddenError(
+                    "You can not remove yourself from the organization. Use leave endpoint instead"
+                )
+            }
+
+            // OWNER can remove MEMBER or ADMIN
+            // ADMIN can remove only MEMBER
+
+            if (targetMember.role === Role.OWNER){
+                throw new ForbiddenError("Owner cannot be removed")
+            }
+
+            if (currentRole === Role.ADMIN && targetMember.role !== Role.MEMBER){
+                throw new ForbiddenError("Admin can only remove MEMBER role")
+            }
+
             const removedMember = await repos.memberships.deleteById(memberId)
 
             await repos.auditLogs.create({
                 action: AuditAction.MEMBER_REMOVED,
-                userId: currentUserId,
+                userId: currentMember.userId,
                 ipAddress: metadata.ipAddress,
                 userAgent: metadata.userAgent,
                 metadata: {
@@ -229,8 +318,7 @@ export class MembershipService {
         logger.info({
             organizationId,
             memberId,
-            removedUserId: targetMember.userId,
-            removedRole: targetMember.role,
+            removedUserId: removedMember.userId,
             removedBy: {
                 userId: currentUserId,
                 role: currentUserRole
@@ -248,6 +336,17 @@ export class MembershipService {
         logger: Logger
     ): Promise<Membership> {
         const leftMember  = await this.unitOfWork.transaction(async(repos) => {
+
+            const member = await repos.memberships.findByIdAndOrganizationForUpdate(memberId,organizationId)
+
+            if (!member) {
+                throw new NotFoundError("Membership not found")
+            }
+
+            if (member.role === Role.OWNER){
+                throw new ForbiddenError("Owner cannot leave the organization. Transfer ownership first")
+            }
+
             const deletedMember = await repos.memberships.deleteById(memberId)
 
             await repos.auditLogs.create({

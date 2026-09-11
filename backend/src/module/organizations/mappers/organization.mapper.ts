@@ -1,5 +1,5 @@
 import { Organization } from "@prisma/client";
-import { OrganizationResponseDto } from "../dtos/organization_response.dto.js";
+import { type OrganizationResponseDto } from "../dtos/organization_response.dto.js";
 
 export const toOrganizationResponseDto = (
     organization: Organization

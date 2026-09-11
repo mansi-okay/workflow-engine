@@ -46,6 +46,19 @@ enum AuditAction {
   MEMBER_OWNERSHIP_TRANSFERRED
 }
 
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum IdempotencyOperation {
+  CREATE_ORGANIZATION
+  CREATE_INVITATION
+  ACCEPT_INVITATION
+  TRANSFER_OWNERSHIP
+}
+
 model User {
   id String @id @default(cuid())
   name String
@@ -67,6 +80,7 @@ model User {
   memberships Membership[]
   invitations Invitation[] @relation("InvitationsSent")
   auditLogs AuditLog[]
+  idempotencyKeys IdempotencyKey[]
 }
 
 model Session {
@@ -183,4 +197,24 @@ model AuditLog {
   @@index([action])
   @@index([userId])
   @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id String @id @default(cuid())
+  key String
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  requestHash String
+  operation IdempotencyOperation
+  status IdempotencyStatus @default(PROCESSING)
+  responseStatus Int?
+  responseBody Json?
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime 
+
+  @@unique([userId, key, operation])
+  @@index([expiresAt])
 }

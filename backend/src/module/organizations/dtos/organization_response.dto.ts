@@ -1,4 +1,4 @@
-export interface OrganizationResponseDto {
+export type OrganizationResponseDto = {
     id: string
     name: string
     slug: string

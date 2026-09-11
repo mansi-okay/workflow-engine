@@ -1,5 +1,5 @@
 import { Invitation } from "@prisma/client";
-import { InvitationResponseDto, PublicInvitationResponseDto } from "../dtos/invitation_response.dto.js";
+import { type InvitationResponseDto, PublicInvitationResponseDto } from "../dtos/invitation_response.dto.js";
 import { PublicInvitation } from "../types/organization.types.js";
 
 export const toInvitationResponseDto = (data: Invitation): InvitationResponseDto => ({

@@ -21,6 +21,7 @@ import { toInvitationResponseDto, toPublicInvitationResponseDto } from "../mappe
 import { RevokeInvitationParamsInput } from "../validations/revoke_invitation.schema.js";
 import { GetInvitationParamsInput } from "../validations/get_invitation.schema.js";
 import { AcceptInvitationParamsInput } from "../validations/accept_invitation.schema.js";
+import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
 
 export class OrganizationController{
     constructor(
@@ -34,11 +35,13 @@ export class OrganizationController{
 
         const auth = getAuthContext(req)
         const metadata = getSessionMetadata(req)
+        const {recordId} = getIdempotencyContext(req)
 
         const result = await this.organizationService.createOrganization(
             data,
             auth,
             metadata,
+            recordId,
             req.logger
         )
 
@@ -167,16 +170,16 @@ export class OrganizationController{
     transferOwnership: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const {userId: currentUserId} = getAuthContext(req)
         const {organizationId, memberId} = req.params as TransferOwnershipParamsInput
-        const {id: currentOwnerMemberId} = getMembershipContext(req)
+        const {recordId} = getIdempotencyContext(req)
 
         const metadata = getSessionMetadata(req)
 
         const result = await this.membershipService.transferOwnership(
             organizationId,
-            currentOwnerMemberId,
             memberId,
             currentUserId,
             metadata,
+            recordId,
             req.logger
         )
 
@@ -243,6 +246,7 @@ export class OrganizationController{
         const {organizationId} = req.params as OrganizationParamsInput
         const metadata = getSessionMetadata(req)
         const {email, role} = req.body as CreateInvitationBodyInput
+        const {recordId} = getIdempotencyContext(req)
 
         const result = await this.invitationService.createInvitation(
             organizationId,
@@ -250,6 +254,7 @@ export class OrganizationController{
             userId,
             role,
             metadata,
+            recordId,
             req.logger
         )
 
@@ -312,11 +317,13 @@ export class OrganizationController{
         const {token} = req.params as AcceptInvitationParamsInput
         const {userId} = getAuthContext(req)
         const metadata = getSessionMetadata(req)
+        const {recordId} = getIdempotencyContext(req)
 
         const result = await this.invitationService.acceptInvitation(
             token,
             userId,
             metadata,
+            recordId,
             req.logger
         )
 

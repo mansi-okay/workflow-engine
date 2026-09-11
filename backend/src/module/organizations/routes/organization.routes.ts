@@ -6,7 +6,7 @@ import { createOrganizationSchema } from "../validations/create_organization.sch
 import { organizationContext, organizationController } from "../../../container/organization.container.js";
 import { organizationParamsSchema } from "../validations/organization_params.schema.js";
 import { authorizeOrganizationRole } from "../middlewares/authorize_organization_role.middleware.js";
-import { Role } from "@prisma/client";
+import { IdempotencyOperation, Role } from "@prisma/client";
 import { updateOrganizationSchema } from "../validations/update_organization.schema.js";
 import { updateMembershipBodySchema, updateMembershipParamsSchema } from "../validations/update_membership.schema.js";
 import { transferOwnershipParamsSchema } from "../validations/transfer_ownership.schema.js";
@@ -14,6 +14,8 @@ import { removeMemberParamsSchema } from "../validations/remove_member.schema.js
 import { leaveOrganizationParamsSchema } from "../validations/leave_organization.schema.js";
 import { createInvitationBodySchema } from "../validations/create_invitation.schema.js";
 import { revokeInvitationParamsSchema } from "../validations/revoke_invitation.schema.js";
+import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.middleware.js";
+import { idempotencyService } from "../../../container/idempotency.container.js";
 
 const router = Router()
 
@@ -21,6 +23,7 @@ router.route("/")
 .post(
     asyncHandler(authenticateUser),
     validate(createOrganizationSchema, "body"),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.CREATE_ORGANIZATION),
     asyncHandler(organizationController.createOrganization)
 )
 .get(
@@ -80,6 +83,7 @@ router.post("/:organizationId/transfer-ownership/:memberId",
     validate(transferOwnershipParamsSchema, "params"),
     asyncHandler(organizationContext),
     asyncHandler(authorizeOrganizationRole(Role.OWNER)),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.TRANSFER_OWNERSHIP),
     asyncHandler(organizationController.transferOwnership)
 )
 
@@ -99,6 +103,7 @@ router.route("/:organizationId/invitations")
     asyncHandler(organizationContext),
     asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
     validate(createInvitationBodySchema, "body"),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.CREATE_INVITATION),
     asyncHandler(organizationController.createInvitation)
 )
 .get(

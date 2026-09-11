@@ -43,6 +43,19 @@ export class MembershipRepository{
         })
     }
 
+    async findByUserAndOrganizationForUpdate(
+        userId: string,
+        organizationId: string
+    ): Promise<Membership | null>{
+        const result = await this.db.$queryRaw<Membership[]>`
+        SELECT * FROM "Membership"
+        WHERE "userId" = ${userId} AND "organizationId" = ${organizationId}
+        FOR UPDATE
+        `
+
+        return result[0] ?? null
+    }
+
     async findByOrganizationId(organizationId: string): Promise<MembershipWithUser[]> {
         return this.db.membership.findMany({
             where: {organizationId},
@@ -68,6 +81,36 @@ export class MembershipRepository{
                 organizationId
             }
         })
+    }
+
+    async findByIdAndOrganizationForUpdate(
+        memberId: string, 
+        organizationId: string
+    ): Promise<Membership | null>{
+        const result = await this.db.$queryRaw<Membership[]>`
+        SELECT *
+        FROM "Membership"
+        WHERE "id" = ${memberId} AND "organizationId" = ${organizationId}
+        FOR UPDATE
+        `
+        return result[0] ?? null
+    }
+
+    async findCurrentUserAndTargetForUpdate(
+        currentUserId: string,
+        targetMemberId: string,
+        organizationId: string
+    ): Promise<Membership[]>{
+        return this.db.$queryRaw<Membership[]>`
+            SELECT * FROM "Membership"
+            WHERE "organizationId" = ${organizationId}
+            AND (
+                "userId" = ${currentUserId}
+                OR "id" = ${targetMemberId}
+            )
+            ORDER BY "id" ASC
+            FOR UPDATE
+        `
     }
     
     async updateRole(
