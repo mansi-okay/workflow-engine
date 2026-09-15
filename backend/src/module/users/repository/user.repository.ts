@@ -1,5 +1,7 @@
 import { Prisma, PrismaClient, User } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
+import { isPrismaUniqueConstraintError } from "../../../shared/database/prisma_errors.js";
+import { ConflictError } from "../../../shared/error/HttpErrors.js";
 
 export class UserRepository{
 
@@ -17,8 +19,25 @@ export class UserRepository{
         })
     }
 
+    async findByEmailForUpdate(email: string): Promise<User | null>{
+        const result = await this.db.$queryRaw<User[]>`
+        SELECT * FROM "User"
+        WHERE "email" = ${email} AND "deletedAt" IS NULL
+        FOR UPDATE
+        `
+        return result[0] ?? null
+    }
+
     async create(data: Prisma.UserCreateInput): Promise<User>{
-        return this.db.user.create({data})
+        try {
+            return await this.db.user.create({data})
+        } catch (error) {
+            if (isPrismaUniqueConstraintError(error,["email"])){
+                throw new ConflictError("Email already exists")
+            }
+
+            throw error
+        }
     }
 
     async markEmailVerified(userId: string): Promise<User>{

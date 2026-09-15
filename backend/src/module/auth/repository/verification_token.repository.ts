@@ -20,6 +20,35 @@ export class VerificationTokenRepository{
         })
     }
 
+    async findByRawTokenForUpdate(token: string): Promise<VerificationTokenWithUser | null> {
+        const result = await this.db.$queryRaw<VerificationToken[]>`
+        SELECT * FROM "VerificationToken"
+        WHERE "hashedToken" = ${hashToken(token)}
+        FOR UPDATE
+        `
+
+        const verificationToken = result[0]
+
+        if (!verificationToken){
+            return null
+        }
+
+        const user = await this.db.user.findUnique({
+            where: {
+                id: verificationToken.userId
+            }
+        })
+
+        if (!user) {
+            return null
+        }
+
+        return {
+            ...verificationToken,
+            user
+        }
+    }
+    
     async markUsed(tokenId: string): Promise<VerificationToken> {
         return this.db.verificationToken.update({
             where: {id: tokenId},

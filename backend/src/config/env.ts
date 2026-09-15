@@ -17,7 +17,10 @@ const envSchema = z.object({
   EMAIL_VERIFICATION_TOKEN_EXPIRY: durationSchema.default("24h"),
   PASSWORD_RESET_TOKEN_EXPIRY:durationSchema.default("30m"),
   INVITATION_TOKEN_EXPIRY:durationSchema.default("7d"),
-  IDEMPOTENCY_KEY_EXPIRY:durationSchema.default("24h")
+  IDEMPOTENCY_KEY_EXPIRY:durationSchema.default("24h"),
+  RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
+  EMAIL_FROM:z.email("EMAIL_FROM must be valid"),
+  FRONTEND_URL: z.url().default("http://localhost:3000")
 })
 
 const parsed = envSchema.safeParse(process.env)

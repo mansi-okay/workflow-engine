@@ -11,6 +11,8 @@ import { Logger } from "pino";
 import { BadRequestError, UnauthorizedError } from "../../../shared/error/HttpErrors.js";
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { AuthContext } from "../../../shared/types/request_context.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class SessionService {
     constructor(
@@ -96,55 +98,59 @@ export class SessionService {
         const userId = payload.sub
         const sessionId = payload.sid
 
-        const session = await this.sessionRepository.findByIdWithUser(sessionId)
-
-        if (!session){
-            throw new UnauthorizedError("Invalid refresh token")
-        }
-
-        if (session.userId !== userId) {
-            throw new UnauthorizedError("Invalid refresh token");
-        }
-
-        if (session.revokedAt){
-            throw new UnauthorizedError("Invalid refresh token")
-        }
-
-        const now = new Date()
-
-        if (session.expiresAt < now){
-            throw new UnauthorizedError("Invalid refresh token")
-        }
-
-        const isRefreshTokenValid = verifyTokenHash(refreshToken, session.hashedRefreshToken)
-
-        if(!isRefreshTokenValid){
-
-            await this.revokeSession(
-                sessionId,
-                userId,
-                metadata,
-                AuditAction.SESSION_REVOKED
-            )
-
-            logger.warn({
-                userId,
-                sessionId
-            }, "Refresh token reuse detected. Session revoked")
-
-            throw new UnauthorizedError("Invalid refresh token")
-        }
-
-        if (session.user.deletedAt || !session.user.isEmailVerified){
-            throw new UnauthorizedError("Invalid refresh token")
-        }
-
-        const accessToken = generateAccessToken(toAccessPayload(session.user, sessionId))
-        const newRefreshToken = generateRefreshToken(toRefreshPayload(session.user, sessionId))
-
         const expiresAt = createExpirationDate(env.REFRESH_TOKEN_EXPIRY);
 
-        await this.unitOfWork.transaction(async(repos) => {
+        const result = await this.unitOfWork.transaction(async(repos) => {
+            const session = await repos.sessions.findByIdWithUserForUpdate(sessionId)
+
+            if (!session){
+                throw new UnauthorizedError("Invalid refresh token")
+            }
+
+            if (session.userId !== userId) {
+                throw new UnauthorizedError("Invalid refresh token");
+            }
+
+            if (session.revokedAt){
+                throw new UnauthorizedError("Invalid refresh token")
+            }
+
+            const now = new Date()
+
+            if (session.expiresAt < now){
+                throw new UnauthorizedError("Invalid refresh token")
+            }
+
+            const isRefreshTokenValid = verifyTokenHash(refreshToken, session.hashedRefreshToken)
+
+            if(!isRefreshTokenValid){
+
+                await repos.sessions.revokeIfActive(sessionId)
+
+                await repos.auditLogs.create({
+                    action: AuditAction.SESSION_REVOKED,
+                    userId,
+                    ipAddress: metadata.ipAddress,
+                    userAgent: metadata.userAgent
+                })
+                
+                logger.warn({
+                    userId,
+                    sessionId
+                }, "Refresh token reuse detected. Session revoked")
+
+                return {
+                    reuseDetected: true as const
+                }
+            }
+
+            if (session.user.deletedAt || !session.user.isEmailVerified){
+                throw new UnauthorizedError("Invalid refresh token")
+            }
+
+            const accessToken = generateAccessToken(toAccessPayload(session.user, sessionId))
+            const newRefreshToken = generateRefreshToken(toRefreshPayload(session.user, sessionId))
+
             await repos.sessions.rotateRefreshToken(
                 sessionId, 
                 newRefreshToken, 
@@ -158,7 +164,16 @@ export class SessionService {
                 userAgent:metadata.userAgent
             })
 
+            return {
+                session,
+                accessToken,
+                newRefreshToken
+            }
         })
+
+        if (result.reuseDetected){
+            throw new UnauthorizedError("Invalid refresh token")
+        }
 
         logger.info({
             userId,
@@ -167,9 +182,9 @@ export class SessionService {
         }, "Session refreshed")
 
         return {
-            user: session.user,
-            refreshToken: newRefreshToken,
-            accessToken
+            user: result.session.user,
+            refreshToken: result.newRefreshToken,
+            accessToken: result.accessToken
         }
     }
 
@@ -212,14 +227,24 @@ export class SessionService {
     }
 
     async getSessions(
-        auth: AuthContext
-    ): Promise<SessionsResult>{
+        auth: AuthContext,
+        pagination: PaginationInput
+    ): Promise<{
+        sessionsData:SessionsResult
+        pagination: PaginationMeta
+    }>{
 
-        const sessions = await this.sessionRepository.findActiveByUserId(auth.userId)
+        const result = await this.sessionRepository.findActiveByUserId(
+            auth.userId,
+            pagination
+        )
 
         return {
-            currentSessionId: auth.sessionId,
-            sessions
+            sessionsData: {
+                currentSessionId: auth.sessionId,
+                sessions: result.sessions
+            },
+            pagination: result.pagination
         }
     }
 

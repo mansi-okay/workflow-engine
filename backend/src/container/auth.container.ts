@@ -7,10 +7,10 @@ import { UserRepository } from "../module/users/repository/user.repository.js";
 import { AuditRepository } from "../shared/audit/audit.repository.js";
 import { authenticate } from "../shared/middleware/authenticate.middleware.js";
 import { unitOfWork } from "./database.container.js";
+import { idempotencyService } from "./idempotency.container.js";
 import { sessionRepository, sessionService } from "./session.container.js";
 
 export const userRepository = new UserRepository()
-const verificationTokenRepository = new VerificationTokenRepository()
 const auditRepository = new AuditRepository()
 
 const authService = new AuthService(
@@ -21,15 +21,13 @@ const authService = new AuthService(
 )
 
 const verificationService = new VerificationService(
-    verificationTokenRepository,
-    userRepository,
-    unitOfWork
+    unitOfWork,
+    idempotencyService
 )
 
 const passwordService = new PasswordService(
-    userRepository,
     unitOfWork,
-    verificationTokenRepository
+    idempotencyService
 )
 
 export const authController = new AuthController(

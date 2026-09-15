@@ -57,6 +57,25 @@ enum IdempotencyOperation {
   CREATE_INVITATION
   ACCEPT_INVITATION
   TRANSFER_OWNERSHIP
+  FORGOT_PASSWORD
+  RESET_PASSWORD
+  VERIFY_EMAIL
+  RESEND_VERIFICATION_EMAIL
+}
+
+enum OutboxEventType {
+  SEND_INVITATION_EMAIL
+  SEND_VERIFICATION_EMAIL
+  SEND_PASSWORD_RESET_EMAIL
+  SEND_PASSWORD_RESET_SUCCESS_EMAIL
+  SEND_EMAIL_VERIFICATION_SUCCESS_EMAIL
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 model User {
@@ -217,4 +236,18 @@ model IdempotencyKey {
 
   @@unique([userId, key, operation])
   @@index([expiresAt])
+}
+
+model OutboxEvent {
+  id String @id @default(cuid())
+  type OutboxEventType
+  payload Json
+  status OutboxStatus @default(PENDING)
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, availableAt])
 }

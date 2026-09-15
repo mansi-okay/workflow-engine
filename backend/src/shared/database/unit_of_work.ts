@@ -9,6 +9,7 @@ import { OrganizationRepository } from "../../module/organizations/repository/or
 import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
 import { InvitationRepository } from "../../module/organizations/repository/invitation.repository.js";
 import { IdempotencyRepository } from "../idempotency/idempotency.repository.js";
+import { OutboxRepository } from "../outbox/outbox.repository.js";
 
 export class UnitOfWork {
 
@@ -31,7 +32,8 @@ export class UnitOfWork {
             organizations: new OrganizationRepository(tx),
             memberships: new MembershipRepository(tx),
             invitations: new InvitationRepository(tx),
-            idempotency: new IdempotencyRepository(tx)
+            idempotency: new IdempotencyRepository(tx),
+            outbox: new OutboxRepository(tx)
         }
     }
 }

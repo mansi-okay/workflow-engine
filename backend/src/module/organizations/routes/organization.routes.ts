@@ -16,6 +16,7 @@ import { createInvitationBodySchema } from "../validations/create_invitation.sch
 import { revokeInvitationParamsSchema } from "../validations/revoke_invitation.schema.js";
 import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.middleware.js";
 import { idempotencyService } from "../../../container/idempotency.container.js";
+import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
 
 const router = Router()
 
@@ -28,6 +29,7 @@ router.route("/")
 )
 .get(
     asyncHandler(authenticateUser),
+    validate(paginationSchema, "query"),
     asyncHandler(organizationController.getOrganizations)
 )
 
@@ -57,6 +59,7 @@ router.route("/:organizationId")
 router.get("/:organizationId/members",
     asyncHandler(authenticateUser), 
     validate(organizationParamsSchema,"params"),
+    validate(paginationSchema, "query"),
     asyncHandler(organizationContext),
     asyncHandler(organizationController.getMembers)
 )
@@ -109,6 +112,7 @@ router.route("/:organizationId/invitations")
 .get(
     asyncHandler(authenticateUser),
     validate(organizationParamsSchema, "params"),
+    validate(paginationSchema, "query"),
     asyncHandler(organizationContext),
     asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
     asyncHandler(organizationController.getInvitations)

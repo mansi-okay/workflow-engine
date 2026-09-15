@@ -8,7 +8,7 @@ import { hashToken } from "../../../shared/utils/auth/token.js";
 import { AuthResult } from "../types/auth.types.js";
 import { createExpirationDate } from "../../../shared/utils/date/expiration.js";
 import { generateRandomToken } from "../../../shared/utils/auth/random_token.js";
-import { AuditAction, VerificationTokenType } from "@prisma/client";
+import { AuditAction, OutboxEventType, VerificationTokenType } from "@prisma/client";
 import { Logger } from "pino";
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { SessionService } from "./session.service.js";
@@ -21,7 +21,7 @@ export class AuthService{
         private readonly userRepository: UserRepository,
         private readonly unitOfWork: UnitOfWork,
         private readonly sessionService: SessionService,
-        private readonly auditRepository: AuditRepository
+        private readonly auditRepository: AuditRepository,
     ){}
 
     async register(
@@ -29,7 +29,6 @@ export class AuthService{
         metadata: SessionMetadata,
         logger: Logger
     ): Promise<AuthResult>{
-
         const existingUser = await this.userRepository.findByEmail(data.email)
 
         if (existingUser){
@@ -57,6 +56,26 @@ export class AuthService{
                 expiresAt: createExpirationDate(env.EMAIL_VERIFICATION_TOKEN_EXPIRY)
             })
 
+            const verificationUrl = `${env.FRONTEND_URL}/verify-email/${verificationToken}`
+            const emailIdempotencyKey = `verification-email-${user.id}`
+
+            await repos.outbox.create({
+                type: OutboxEventType.SEND_VERIFICATION_EMAIL,
+                payload: {
+                    to: data.email,
+                    subject: "Verify your email address on EventFlow",
+                    text: `
+                    You have successfully registered on EventFlow.
+
+                    Please verify your email address by clicking the link below:
+
+                    Verify your email:
+                    ${verificationUrl}
+                    `,
+                    idempotencyKey: emailIdempotencyKey
+                }
+            })
+
             await repos.auditLogs.create({
                 userId: user.id,
                 action: AuditAction.USER_REGISTERED,
@@ -74,9 +93,7 @@ export class AuthService{
         logger.info({
             userId: registeredUser.id,
         }, "User registered")
-
-        // to-do: Queue verification mail
-
+    
         return {
             user: registeredUser,
             ...tokens

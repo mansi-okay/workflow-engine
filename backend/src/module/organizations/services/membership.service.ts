@@ -7,6 +7,8 @@ import { ForbiddenError, NotFoundError } from "../../../shared/error/HttpErrors.
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { toMembershipWithUserResponseDto } from "../mappers/membership.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class MembershipService {
     constructor(
@@ -15,8 +17,17 @@ export class MembershipService {
         private readonly idempotencyService: IdempotencyService
     ){}
 
-    async getMembers(organizationId: string): Promise<MembershipWithUser[]>{
-        return this.membershipRepository.findByOrganizationId(organizationId)
+    async getMembers(
+        organizationId: string,
+        pagination: PaginationInput
+    ): Promise<{
+        members: MembershipWithUser[]
+        pagination: PaginationMeta
+    }>{
+        return this.membershipRepository.findByOrganizationId(
+            organizationId,
+            pagination
+        )
     }
 
     async updateMember(

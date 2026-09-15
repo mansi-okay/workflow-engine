@@ -9,20 +9,39 @@ import { loginSchema } from "../validations/login.schema.js";
 import { revokeSessionSchema } from "../validations/revoke_session.schema.js";
 import { forgotPasswordSchema } from "../validations/forgot_password.schema.js";
 import { resetPasswordBodySchema, resetPasswordQuerySchema } from "../validations/reset_password.schema.js";
+import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.middleware.js";
+import { idempotencyService } from "../../../container/idempotency.container.js";
+import { IdempotencyOperation } from "@prisma/client";
+import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
 
 const router = Router()
 
-router.post("/register", validate(registerSchema, "body"), asyncHandler(authController.register))
-router.get("/verify-email", validate(verifyEmailSchema, "query"), asyncHandler(authController.verifyEmail))
+router.post(
+    "/register", 
+    validate(registerSchema, "body"), 
+    asyncHandler(authController.register)
+)
+router.get(
+    "/verify-email", 
+    validate(verifyEmailSchema, "query"),
+    idempotencyMiddleware(idempotencyService,IdempotencyOperation.VERIFY_EMAIL),
+    asyncHandler(authController.verifyEmail)
+)
 router.post("/resend-verification-email",
     validate(resendVerificationEmailSchema, "body"),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.RESEND_VERIFICATION_EMAIL),
     asyncHandler(authController.resendVerificationEmail)
 )
 router.post("/login", validate(loginSchema, "body"), asyncHandler(authController.login))
 router.post("/refresh", asyncHandler(authController.refresh))
 router.post("/logout", asyncHandler(authenticateUser), asyncHandler(authController.logout))
 router.post("/logout-all", asyncHandler(authenticateUser), asyncHandler(authController.logoutAll))
-router.get("/sessions", asyncHandler(authenticateUser), asyncHandler(authController.getSessions))
+router.get(
+    "/sessions", 
+    validate(paginationSchema, "query"),
+    asyncHandler(authenticateUser), 
+    asyncHandler(authController.getSessions)
+)
 router.delete("/sessions/:sessionId",
     asyncHandler(authenticateUser), 
     validate(revokeSessionSchema, "params"), 
@@ -30,11 +49,13 @@ router.delete("/sessions/:sessionId",
 )
 router.post("/forgot-password",
     validate(forgotPasswordSchema, "body"), 
+    idempotencyMiddleware(idempotencyService,IdempotencyOperation.FORGOT_PASSWORD),
     asyncHandler(authController.forgotPassword)
 )
 router.post("/reset-password",
     validate(resetPasswordBodySchema, "body"),
     validate(resetPasswordQuerySchema,"query"),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.RESET_PASSWORD),
     asyncHandler(authController.resetPassword)
 )
 

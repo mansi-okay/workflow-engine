@@ -12,6 +12,8 @@ import { UpdateOrganizationInput } from "../validations/update_organization.sche
 import { UpdateOrganizationData } from "../types/organization.types.js";
 import { toOrganizationResponseDto } from "../mappers/organization.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class OrganizationService{ 
     constructor(
@@ -129,8 +131,17 @@ export class OrganizationService{
         throw new ConflictError("Unable to generate a unique organization slug")
     }
 
-    async getOrganizations(userId: string): Promise<Organization[]>{
-        return await this.membershipRepository.findOrganizationsByUserId(userId)
+    async getOrganizations(
+        userId: string,
+        pagination: PaginationInput
+    ): Promise<{
+        organizations: Organization[]
+        pagination: PaginationMeta
+    }>{
+        return await this.membershipRepository.findOrganizationsByUserId(
+            userId,
+            pagination
+        )
     }
 
     // Organization context is used for authorization, not as the full organization record

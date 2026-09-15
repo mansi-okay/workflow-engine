@@ -2,6 +2,9 @@ import { Prisma, PrismaClient, Session } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
 import { SessionWithUser } from "../types/auth.types.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
+import { decodeCursor, decodeSessionCursor, encodeCursor, encodeSessionCursor } from "../../../shared/utils/pagination/cursor.js";
 
 export class SessionRepository{
     constructor (private readonly db:
@@ -18,6 +21,35 @@ export class SessionRepository{
             where: { id },
             include: {user: true}
         })
+    }
+
+    async findByIdWithUserForUpdate(id: string): Promise<SessionWithUser | null>{
+        const result = await this.db.$queryRaw<Session[]>`
+        SELECT * FROM "Session"
+        WHERE "id" = ${id}
+        FOR UPDATE
+        `
+
+        const session = result[0]
+
+        if (!session){ 
+            return null
+        }
+
+        const user = await this.db.user.findUnique({
+            where: {
+                id: session.userId
+            }
+        })
+
+        if (!user){
+            return null
+        }
+
+        return {
+            ...session,
+            user
+        }
     }
 
     async rotateRefreshToken(
@@ -58,15 +90,73 @@ export class SessionRepository{
         return result.count
     }
 
-    async findActiveByUserId(userId: string): Promise<Session[]>{
-        return this.db.session.findMany({
+    async findActiveByUserId(
+        userId: string,
+        {limit, cursor}: PaginationInput
+    ): Promise<{
+        sessions: Session[]
+        pagination: PaginationMeta
+    }>{
+
+        const decodedCursor = cursor ? decodeSessionCursor(cursor) : undefined
+
+        const sessions = await this.db.session.findMany({
             where: {
                 userId,
-                revokedAt: null
+                revokedAt: null,
+                ...(decodedCursor && {
+                    OR: [
+                        {
+                            lastUsedAt: {
+                                lt: decodedCursor.lastUsedAt
+                            }
+                        },
+                        {
+                            lastUsedAt: decodedCursor.lastUsedAt,
+                            createdAt: {
+                                lt: decodedCursor.createdAt
+                            }
+                        },
+                        {
+                            lastUsedAt: decodedCursor.lastUsedAt,
+                            createdAt: decodedCursor.createdAt,
+                            id: {
+                                lt: decodedCursor.id
+                            }
+                        }
+                    ]
+                })
             },
-            orderBy: {
-                lastUsedAt: "desc"
-            }
+            orderBy: [
+                {lastUsedAt: "desc"},
+                {createdAt: "desc"},
+                {id: "desc"}
+            ],
+            take: limit+1
         })
+
+        const hasNextPage = sessions.length > limit
+
+        const items = hasNextPage 
+        ? sessions.slice(0,limit)
+        : sessions
+
+        const lastSession = items[items.length-1]
+
+        const nextCursor = hasNextPage && lastSession
+        ? encodeSessionCursor({
+            lastUsedAt: lastSession.lastUsedAt,
+            createdAt: lastSession.createdAt,
+            id: lastSession.id
+        })
+        : null
+
+        return {
+            sessions: items,
+            pagination: {
+                nextCursor,
+                hasNextPage
+            }
+        }
     }
 }

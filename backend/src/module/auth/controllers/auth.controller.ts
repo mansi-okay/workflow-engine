@@ -17,6 +17,8 @@ import { ForgotPasswordInput } from "../validations/forgot_password.schema.js";
 import { PasswordService } from "../services/password.service.js";
 import { ResetPasswordBodyInput, ResetPasswordQueryInput } from "../validations/reset_password.schema.js";
 import { getAuthContext } from "../../../shared/utils/http/get_auth_context.js";
+import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 
 export class AuthController {
     constructor(
@@ -31,6 +33,7 @@ export class AuthController {
         const data = req.body as RegisterInput
 
         const metadata = getSessionMetadata(req)
+
 
         const result = await this.authService.register(
             data,
@@ -55,10 +58,12 @@ export class AuthController {
         const {token} = req.query as VerifyEmailInput
 
         const metadata = getSessionMetadata(req)
+        const {recordId}= getIdempotencyContext(req)
 
         await this.verificationService.verifyEmail(
             token,
             metadata,
+            recordId,
             req.logger
         )
 
@@ -73,10 +78,12 @@ export class AuthController {
         const {email} = req.body as ResendVerificationEmailInput
 
         const metadata = getSessionMetadata(req)
+        const {recordId}= getIdempotencyContext(req)
 
         await this.verificationService.resendVerificationEmail(
             email,
             metadata,
+            recordId,
             req.logger
         )
 
@@ -169,17 +176,22 @@ export class AuthController {
 
     getSessions: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const auth = getAuthContext(req)
+        const pagination = req.query as unknown as PaginationInput
 
-        const { currentSessionId, sessions } = await this.sessionService.getSessions(auth)
+        const { sessionsData, pagination: paginationMeta } = await this.sessionService.getSessions(
+            auth,
+            pagination
+        )
 
-        const sessionDtos = sessions.map(session =>
-            toSessionResponseDto(session, currentSessionId))
+        const sessionDtos = sessionsData.sessions.map(session =>
+            toSessionResponseDto(session, sessionsData.currentSessionId))
 
         res.status(200).json({
             success: true,
             message: "Fetched user sessions successfully",
             data: {
-                sessions: sessionDtos
+                sessions: sessionDtos,
+                pagination: paginationMeta
             }
         })
     }
@@ -207,10 +219,12 @@ export class AuthController {
         const {email} = req.body as ForgotPasswordInput
 
         const metadata = getSessionMetadata(req)
+        const {recordId} = getIdempotencyContext(req)
 
         await this.passwordService.forgotPassword(
             email, 
             metadata,
+            recordId,
             req.logger
         )
 
@@ -225,11 +239,13 @@ export class AuthController {
         const {newPassword} = req.body as ResetPasswordBodyInput
 
         const metadata = getSessionMetadata(req)
+        const {recordId} = getIdempotencyContext(req)
 
         await this.passwordService.resetPassword(
             token,
             newPassword,
             metadata,
+            recordId,
             req.logger
         )
 

@@ -22,6 +22,7 @@ import { RevokeInvitationParamsInput } from "../validations/revoke_invitation.sc
 import { GetInvitationParamsInput } from "../validations/get_invitation.schema.js";
 import { AcceptInvitationParamsInput } from "../validations/accept_invitation.schema.js";
 import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 
 export class OrganizationController{
     constructor(
@@ -56,10 +57,14 @@ export class OrganizationController{
 
     getOrganizations: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const {userId} = getAuthContext(req)
+        const pagination = req.query as unknown as PaginationInput
 
-        const organizations = await this.organizationService.getOrganizations(userId)
+        const result = await this.organizationService.getOrganizations(
+            userId,
+            pagination
+        )
 
-        const organizationDtos = organizations.map(organization => 
+        const organizationDtos = result.organizations.map(organization => 
             toOrganizationResponseDto(organization)
         )
 
@@ -67,7 +72,8 @@ export class OrganizationController{
             success: true,
             message: "Fetched organizations successfully",
             data: {
-                organizations: organizationDtos
+                organizations: organizationDtos,
+                pagination: result.pagination
             }
         })
     }
@@ -128,16 +134,23 @@ export class OrganizationController{
 
     getMembers: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const {id: organizationId} = getOrganizationContext(req)
+        const pagination = req.query as unknown as PaginationInput
 
-        const memberships = await this.membershipService.getMembers(organizationId)
+        const result = await this.membershipService.getMembers(
+            organizationId,
+            pagination
+        )
 
-        const memberDtos = memberships.map(membership => toMembershipWithUserResponseDto(membership))
+        const memberDtos = result.members.map(
+            membership => toMembershipWithUserResponseDto(membership)
+        )
 
         res.status(200).json({
             success: true,
             message: "Organization members fetched successfully",
             data: {
-                members: memberDtos
+                members: memberDtos,
+                pagination: result.pagination
             }
         })
     }
@@ -269,16 +282,23 @@ export class OrganizationController{
 
     getInvitations: AsyncController = async(req: Request, res: Response): Promise<void> => {
         const {organizationId} = req.params as OrganizationParamsInput
+        const pagination = req.query as unknown as PaginationInput
 
-        const invitations = await this.invitationService.getInvitations(organizationId)
+        const result = await this.invitationService.getInvitations(
+            organizationId,
+            pagination
+        )
 
-        const invitationDtos = invitations.map(invitation => toInvitationResponseDto(invitation))
+        const invitationDtos = result.invitations.map(
+            invitation => toInvitationResponseDto(invitation)
+        )
 
         res.status(200).json({
             success: true,
             message: "Fetched invitations succesfully",
             data: {
-                invitations: invitationDtos
+                invitations: invitationDtos,
+                pagination: result.pagination
             }
         })
     }

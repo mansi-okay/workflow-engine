@@ -1,6 +1,9 @@
 import { Membership, Organization, Prisma, PrismaClient, Role } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { MembershipWithOrganization, MembershipWithUser } from "../types/organization.types.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
+import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
 
 export class MembershipRepository{
     constructor(private readonly db: 
@@ -12,18 +15,77 @@ export class MembershipRepository{
         return this.db.membership.create({data})
     }
 
-    async findOrganizationsByUserId(userId: string): Promise<Organization[]>{
+    async findOrganizationsByUserId(
+        userId: string,
+        {limit, cursor}: PaginationInput
+    ): Promise<{
+        organizations: Organization[]
+        pagination: PaginationMeta
+    }>{
+        const decodedCursor = cursor ? decodeCursor(cursor) : undefined
+
         const memberships = await this.db.membership.findMany({
             where: {
                 userId,
                 organization: {
                     deletedAt: null
-                }
+                },
+                ...(decodedCursor && {
+                    OR: [
+                        {
+                            organization: {
+                                createdAt: {
+                                    lt: decodedCursor.timestamp
+                                }
+                            }
+                        },
+                        {
+                            organization: {
+                                createdAt: decodedCursor.timestamp,
+                                id: {
+                                    lt: decodedCursor.id
+                                }
+                            }
+                        }
+                    ]
+                })
             },
-            include: {organization: true}
+            include: {organization: true},
+            orderBy: [
+                {
+                    organization: {createdAt: "desc"}
+                },
+                {
+                    organization: {id: "desc"}
+                }
+            ],
+            take: limit+1
         })
 
-        return memberships.map(membership => membership.organization)
+        const hasNextPage = memberships.length > limit
+
+        const items = hasNextPage
+        ? memberships.slice(0,limit) 
+        : memberships
+
+        const organizations = items.map(membership => membership.organization)
+
+        const lastOrganization = organizations[organizations.length-1]
+
+        const nextCursor = hasNextPage && lastOrganization
+        ? encodeCursor({
+            timestamp: lastOrganization.createdAt,
+            id: lastOrganization.id
+        })
+        : null
+
+        return {
+            organizations,
+            pagination: {
+                nextCursor,
+                hasNextPage
+            }
+        }
     }
 
     async findByUserAndOrganization(
@@ -56,9 +118,34 @@ export class MembershipRepository{
         return result[0] ?? null
     }
 
-    async findByOrganizationId(organizationId: string): Promise<MembershipWithUser[]> {
-        return this.db.membership.findMany({
-            where: {organizationId},
+    async findByOrganizationId(
+        organizationId: string,
+        {limit, cursor}: PaginationInput
+    ): Promise<{
+        members: MembershipWithUser[]
+        pagination: PaginationMeta
+    }> {
+        const decodedCursor = cursor ? decodeCursor(cursor) : undefined
+
+        const memberships = await this.db.membership.findMany({
+            where: {
+                organizationId,
+                ...(decodedCursor && {
+                    OR: [
+                        {
+                            joinedAt: {
+                                lt: decodedCursor.timestamp
+                            }
+                        },
+                        {
+                            joinedAt: decodedCursor.timestamp,
+                            id: {
+                                lt: decodedCursor.id
+                            }
+                        }
+                    ]
+                })   
+            },       
             include: {
                 user:{
                     select:{
@@ -66,22 +153,51 @@ export class MembershipRepository{
                         name: true,
                         email: true
                     }
-                }
-            }
-        })
-    }
-
+                }    
+            },          
+            orderBy: [
+                {joinedAt: "desc"},
+                {id: "desc"}
+            ],       
+            take: limit+1
+        })                   
+                     
+        const hasNextPage = memberships.length > limit
+                     
+        const items = hasNextPage
+        ? memberships.slice(0,limit)
+        : memberships
+                      
+        const lastMembership = items[items.length - 1]
+                     
+        const nextCursor = hasNextPage && lastMembership
+        ? encodeCursor({
+            timestamp: lastMembership.joinedAt,
+            id: lastMembership.id
+        })           
+        : null         
+                     
+        return {     
+            members: items,
+            pagination: {
+                nextCursor,
+                hasNextPage
+            }        
+        }              
+    }                 
+                      
     async findByIdAndOrganization(
         memberId: string, 
         organizationId: string
     ): Promise<Membership | null>{
         return this.db.membership.findFirst({
-            where: {
+            where: { 
                 id: memberId,
                 organizationId
-            }
-        })
-    }
+            }        
+                      
+        })           
+    }                
 
     async findByIdAndOrganizationForUpdate(
         memberId: string, 

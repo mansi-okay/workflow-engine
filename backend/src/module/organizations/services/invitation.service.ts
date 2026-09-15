@@ -1,4 +1,4 @@
-import { AuditAction, Invitation, Role } from "@prisma/client";
+import { AuditAction, Invitation, OutboxEventType, Role } from "@prisma/client";
 import { SessionMetadata } from "../../../shared/types/session.types.js";
 import { Logger } from "pino";
 import { UserRepository } from "../../users/repository/user.repository.js";
@@ -13,6 +13,8 @@ import { PublicInvitation } from "../types/organization.types.js";
 import { toInvitationResponseDto } from "../mappers/invitation.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 import { toMembershipResponseDto } from "../mappers/membership.mapper.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class InvitationService{
     constructor(
@@ -39,6 +41,8 @@ export class InvitationService{
             }
 
             const token = generateRandomToken()
+            const invitationUrl = `${env.FRONTEND_URL}/invitations/${token}`
+
 
             const invitation = await this.unitOfWork.transaction(async(repos) => {
 
@@ -67,6 +71,23 @@ export class InvitationService{
                     invitedById: currentUserId,
                     role,
                     expiresAt: createExpirationDate(env.INVITATION_TOKEN_EXPIRY)
+                })
+
+                const emailIdempotencyKey = `invitation-email-${invitation.id}`
+                
+                await repos.outbox.create({
+                    type: OutboxEventType.SEND_INVITATION_EMAIL,
+                    payload: {
+                        to: email,
+                        subject: "You're invited to join an organization on EventFlow",
+                        text: `
+                        You have been invited to join an organization on EventFlow.
+
+                        Accept the invitation: 
+                        ${invitationUrl}
+                        `,
+                        idempotencyKey: emailIdempotencyKey
+                    }
                 })
 
                 await repos.auditLogs.create({
@@ -98,8 +119,6 @@ export class InvitationService{
                 role
             }, "Invitation sent")
 
-            // To-Do: Queue email with Invitation verification token link
-
             return invitation 
         } catch(error){
             await this.idempotencyService.markFailed(idempotencyRecordId)
@@ -109,11 +128,15 @@ export class InvitationService{
 
     async getInvitations(
         organizationId: string,
-    ): Promise<Invitation[]>{
-
-        // TODO: Implement pagination
-
-        return await this.invitationRepository.findByOrganization(organizationId)
+        pagination: PaginationInput
+    ): Promise<{
+        invitations:Invitation[]
+        pagination: PaginationMeta
+    }>{
+        return await this.invitationRepository.findByOrganization(
+            organizationId,
+            pagination
+        )
     }
 
     async revokeInvitation(

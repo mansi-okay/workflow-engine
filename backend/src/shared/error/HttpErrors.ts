@@ -41,3 +41,9 @@ export class IdempotencyKeyConflictError extends ConflictError{
         super(message)
     }
 }
+
+export class EmailSendError extends AppError{
+    constructor(message = "Failed to send email"){
+        super(message,500)
+    }
+}
