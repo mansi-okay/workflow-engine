@@ -44,6 +44,11 @@ enum AuditAction {
   MEMBER_REMOVED
   MEMBER_LEFT
   MEMBER_OWNERSHIP_TRANSFERRED
+
+  WORKFLOW_CREATED
+  WORKFLOW_UPDATED
+  WORKFLOW_DELETED
+
 }
 
 enum IdempotencyStatus {
@@ -61,6 +66,9 @@ enum IdempotencyOperation {
   RESET_PASSWORD
   VERIFY_EMAIL
   RESEND_VERIFICATION_EMAIL
+  CREATE_WORKFLOW
+  UPDATE_WORKFLOW
+  DELETE_WORKFLOW
 }
 
 enum OutboxEventType {
@@ -78,176 +86,278 @@ enum OutboxStatus {
   FAILED
 }
 
+enum WorkflowVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model User {
-  id String @id @default(cuid())
+  id   String @id @default(cuid())
   name String
 
   // Email is unique only among active users.
   // Soft-deleted users retain their email, but the email can be reused
   // when a new account is registered. 
   email String
-  
-  hashedPassword String
+
+  hashedPassword  String
   isEmailVerified Boolean @default(false)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  sessions Session[]
-  verificationTokens VerificationToken[]
-  memberships Membership[]
-  invitations Invitation[] @relation("InvitationsSent")
-  auditLogs AuditLog[]
-  idempotencyKeys IdempotencyKey[]
+  sessions                  Session[]
+  verificationTokens        VerificationToken[]
+  memberships               Membership[]
+  invitations               Invitation[]        @relation("InvitationsSent")
+  auditLogs                 AuditLog[]
+  idempotencyKeys           IdempotencyKey[]
+  workflows                 Workflow[]          @relation("WorkflowCreatedBy")
+  workflowVersionsCreated   WorkflowVersion[]   @relation("WorkflowVersionCreatedBy")
+  workflowVersionsPublished WorkflowVersion[]   @relation("WorkflowVersionPublishedBy")
 }
 
 model Session {
   id String @id @default(cuid())
 
   userId String
-  user User @relation(fields: [userId],references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   hashedRefreshToken String
 
-  ipAddress String?
-  userAgent String?
+  ipAddress  String?
+  userAgent  String?
   deviceName String?
 
   expiresAt DateTime
   revokedAt DateTime?
 
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
   lastUsedAt DateTime @updatedAt
 
   @@index([userId])
 }
 
-model VerificationToken{
+model VerificationToken {
   id String @id @default(cuid())
 
-  userId String 
-  user User @relation(fields: [userId],references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  hashedToken String @unique
-  type VerificationTokenType
+  hashedToken String                @unique
+  type        VerificationTokenType
 
   expiresAt DateTime
-  usedAt DateTime?
-  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
 
 model Organization {
-  id String @id @default(cuid())
+  id   String @id @default(cuid())
   name String
 
   // Slugs remain permanently reserved after soft deletion.
   // Prevents old organization URLs from being reused.
   slug String @unique
-  
+
   description String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   memberships Membership[]
   invitations Invitation[]
+  workflows   Workflow[]
 }
 
 model Membership {
   id String @id @default(cuid())
-  
+
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   role Role
 
   joinedAt DateTime @default(now())
 
   @@unique([userId, organizationId])
-
   @@index([organizationId])
   @@index([userId])
 }
 
 model Invitation {
-  id String @id @default(cuid())
-  email String
+  id          String @id @default(cuid())
+  email       String
   hashedToken String @unique
 
   organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   invitedById String
-  invitedBy User @relation("InvitationsSent",fields: [invitedById], references: [id])
+  invitedBy   User   @relation("InvitationsSent", fields: [invitedById], references: [id])
 
   role Role
 
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  revokedAt DateTime?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
   acceptedAt DateTime?
 
   @@index([email])
   @@index([invitedById])
   @@index([organizationId])
-  @@index([organizationId,email])
+  @@index([organizationId, email])
 }
 
 model AuditLog {
-  id String @id @default(cuid())
+  id     String      @id @default(cuid())
   action AuditAction
 
   userId String?
-  user User? @relation(fields: [userId],references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   ipAddress String?
   userAgent String?
-  metadata Json?
+  metadata  Json?
 
   createdAt DateTime @default(now())
-  
+
   @@index([action])
   @@index([userId])
   @@index([createdAt])
 }
 
 model IdempotencyKey {
-  id String @id @default(cuid())
+  id  String @id @default(cuid())
   key String
 
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  requestHash String
-  operation IdempotencyOperation
-  status IdempotencyStatus @default(PROCESSING)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  requestHash    String
+  operation      IdempotencyOperation
+  status         IdempotencyStatus    @default(PROCESSING)
   responseStatus Int?
-  responseBody Json?
+  responseBody   Json?
 
   createdAt DateTime @default(now())
-  expiresAt DateTime 
+  expiresAt DateTime
 
   @@unique([userId, key, operation])
   @@index([expiresAt])
 }
 
 model OutboxEvent {
-  id String @id @default(cuid())
-  type OutboxEventType
-  payload Json
-  status OutboxStatus @default(PENDING)
-  attempts Int @default(0)
-  availableAt DateTime @default(now())
+  id          String          @id @default(cuid())
+  type        OutboxEventType
+  payload     Json
+  status      OutboxStatus    @default(PENDING)
+  attempts    Int             @default(0)
+  availableAt DateTime        @default(now())
   processedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status, availableAt])
+}
+
+model Workflow {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  currentPublishedVersionId String?
+  currentPublishedVersion   WorkflowVersion? @relation("PublishedVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+
+  currentDraftVersionId String?
+  currentDraftVersion   WorkflowVersion? @relation("DraftVersion", fields: [currentDraftVersionId], references: [id], onDelete: SetNull)
+
+  createdBy     String?
+  createdByUser User?   @relation("WorkflowCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  workflowVersions WorkflowVersion[]
+
+  @@index([organizationId])
+}
+
+model WorkflowVersion {
+  id String @id @default(cuid())
+
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  versionNumber Int
+  status        WorkflowVersionStatus
+
+  createdBy     String?
+  createdByUser User?   @relation("WorkflowVersionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  publishedBy     String?
+  publishedByUser User?   @relation("WorkflowVersionPublishedBy", fields: [publishedBy], references: [id], onDelete: SetNull)
+
+  publishedByWorkflow Workflow[] @relation("PublishedVersion")
+  draftForWorkflow    Workflow[] @relation("DraftVersion")
+  nodes               Node[]
+  edges               Edge[]
+
+  @@unique([workflowId, versionNumber])
+}
+
+model Node {
+  id String @id @default(cuid())
+
+  workflowVersionId String
+  version           WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Cascade)
+
+  nodeKey  String
+  type     String
+  config   Json
+  position Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([status, availableAt])
+  outgoingEdges Edge[] @relation("SourceNode")
+  incomingEdges Edge[] @relation("TargetNode")
+
+  @@unique([workflowVersionId, nodeKey])
+}
+
+model Edge {
+  id String @id @default(cuid())
+
+  workflowVersionId String
+  version           WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Cascade)
+
+  sourceNodeId String
+  sourceNode   Node   @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+
+  targetNodeId String
+  targetNode   Node   @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([workflowVersionId, sourceNodeId, targetNodeId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
 }

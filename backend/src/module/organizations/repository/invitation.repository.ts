@@ -1,10 +1,10 @@
 import { Invitation, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
-import { PublicInvitation } from "../types/organization.types.js";
+import { PublicInvitation, type InvitationListResult } from "../types/organization.types.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
-import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
+import { organizationCursorSchema } from "../validations/organization_cursor.schema.js";
 
 export class InvitationRepository{
     constructor( private readonly db:
@@ -36,11 +36,8 @@ export class InvitationRepository{
     async findByOrganization(
         organizationId: string,
         {limit, cursor}: PaginationInput
-    ): Promise<{
-        invitations: Invitation[]
-        pagination: PaginationMeta
-    }>{
-        const decodedCursor = cursor ? decodeCursor(cursor) : undefined
+    ): Promise<InvitationListResult>{
+        const decodedCursor = cursor ? decodeCursor(cursor, organizationCursorSchema) : undefined
 
         const invitations =  await this.db.invitation.findMany({
             where: {

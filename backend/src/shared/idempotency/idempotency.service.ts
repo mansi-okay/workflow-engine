@@ -27,6 +27,41 @@ export class IdempotencyService{
                 throw new ConflictError("Idempotency key was already used with different request")
             }
 
+            // Recover stale PROCESSING request
+            if (
+                existing.status === IdempotencyStatus.PROCESSING && 
+                existing.expiresAt < new Date()
+            ){
+                const reclaimed = await this.idempotencyRepository.reclaimExpiredProcessing(
+                    existing.id,
+                    createExpirationDate(env.IDEMPOTENCY_KEY_EXPIRY)
+                )
+
+                if (reclaimed){
+                    return {
+                        type: "RETRY",
+                        record: existing
+                    }
+                }
+
+                // Another request reclaimed or completed it first
+                const current = await this.idempotencyRepository.findByKey(
+                    userId,
+                    key,
+                    operation
+                )
+
+                if (!current){
+                    throw new ConflictError("Idempotency record disappeared during retry")
+                }
+
+                return {
+                    type: "EXISTING",
+                    record: current
+                }
+            }
+            
+            // Recover FAILED request
             if (existing.status === IdempotencyStatus.FAILED){
                 const reclaimed = await this.idempotencyRepository.reclaimFailed(existing.id)
 

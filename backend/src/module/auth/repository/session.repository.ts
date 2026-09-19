@@ -4,7 +4,8 @@ import { hashToken } from "../../../shared/utils/auth/token.js";
 import { SessionWithUser } from "../types/auth.types.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
-import { decodeCursor, decodeSessionCursor, encodeCursor, encodeSessionCursor } from "../../../shared/utils/pagination/cursor.js";
+import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
+import { sessionCursorSchema } from "../validations/session_cursor.schema.js";
 
 export class SessionRepository{
     constructor (private readonly db:
@@ -98,7 +99,7 @@ export class SessionRepository{
         pagination: PaginationMeta
     }>{
 
-        const decodedCursor = cursor ? decodeSessionCursor(cursor) : undefined
+        const decodedCursor = cursor ? decodeCursor(cursor, sessionCursorSchema) : undefined
 
         const sessions = await this.db.session.findMany({
             where: {
@@ -144,7 +145,7 @@ export class SessionRepository{
         const lastSession = items[items.length-1]
 
         const nextCursor = hasNextPage && lastSession
-        ? encodeSessionCursor({
+        ? encodeCursor({
             lastUsedAt: lastSession.lastUsedAt,
             createdAt: lastSession.createdAt,
             id: lastSession.id

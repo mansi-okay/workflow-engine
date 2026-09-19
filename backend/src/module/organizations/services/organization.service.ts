@@ -9,11 +9,10 @@ import { AuditAction, Organization, Role } from "@prisma/client";
 import { MembershipRepository } from "../repository/membership.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, SlugConflictError } from "../../../shared/error/HttpErrors.js";
 import { UpdateOrganizationInput } from "../validations/update_organization.schema.js";
-import { UpdateOrganizationData } from "../types/organization.types.js";
+import { UpdateOrganizationData, type OrganizationListResult } from "../types/organization.types.js";
 import { toOrganizationResponseDto } from "../mappers/organization.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
-import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class OrganizationService{ 
     constructor(
@@ -134,10 +133,7 @@ export class OrganizationService{
     async getOrganizations(
         userId: string,
         pagination: PaginationInput
-    ): Promise<{
-        organizations: Organization[]
-        pagination: PaginationMeta
-    }>{
+    ): Promise<OrganizationListResult>{
         return await this.membershipRepository.findOrganizationsByUserId(
             userId,
             pagination

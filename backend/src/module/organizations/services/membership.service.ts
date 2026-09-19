@@ -1,6 +1,6 @@
 import { AuditAction, Membership, Role } from "@prisma/client";
 import { MembershipRepository } from "../repository/membership.repository.js";
-import { MembershipWithUser, TransferOwnership } from "../types/organization.types.js";
+import { TransferOwnership, type MembershipListResult } from "../types/organization.types.js";
 import { SessionMetadata } from "../../../shared/types/session.types.js";
 import { Logger } from "pino";
 import { ForbiddenError, NotFoundError } from "../../../shared/error/HttpErrors.js";
@@ -8,7 +8,6 @@ import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { toMembershipWithUserResponseDto } from "../mappers/membership.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
-import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class MembershipService {
     constructor(
@@ -20,10 +19,7 @@ export class MembershipService {
     async getMembers(
         organizationId: string,
         pagination: PaginationInput
-    ): Promise<{
-        members: MembershipWithUser[]
-        pagination: PaginationMeta
-    }>{
+    ): Promise<MembershipListResult>{
         return this.membershipRepository.findByOrganizationId(
             organizationId,
             pagination

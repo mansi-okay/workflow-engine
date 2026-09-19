@@ -10,6 +10,8 @@ import { MembershipRepository } from "../../module/organizations/repository/memb
 import { InvitationRepository } from "../../module/organizations/repository/invitation.repository.js";
 import { IdempotencyRepository } from "../idempotency/idempotency.repository.js";
 import { OutboxRepository } from "../outbox/outbox.repository.js";
+import { WorkflowRepository } from "../../module/workflows/repository/workflow.repository.js";
+import { WorkflowVersionRepository } from "../../module/workflows/repository/workflow_version.repository.js";
 
 export class UnitOfWork {
 
@@ -33,7 +35,9 @@ export class UnitOfWork {
             memberships: new MembershipRepository(tx),
             invitations: new InvitationRepository(tx),
             idempotency: new IdempotencyRepository(tx),
-            outbox: new OutboxRepository(tx)
+            outbox: new OutboxRepository(tx),
+            workflows: new WorkflowRepository(tx),
+            workflowVersions: new WorkflowVersionRepository(tx)
         }
     }
 }

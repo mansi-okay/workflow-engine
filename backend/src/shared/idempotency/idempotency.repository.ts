@@ -77,4 +77,23 @@ export class IdempotencyRepository{
 
         return result.count === 1
     }
+
+    async reclaimExpiredProcessing(
+        id: string,
+        newExpiresAt: Date
+    ):Promise<boolean>{
+        const result = await this.db.idempotencyKey.updateMany({
+            where: {
+                id,
+                status: IdempotencyStatus.PROCESSING,
+                expiresAt: {lt: new Date()}
+            },
+            data:{
+                status: IdempotencyStatus.PROCESSING,
+                newExpiresAt
+            }
+        })
+
+        return result.count === 1
+    }
 }

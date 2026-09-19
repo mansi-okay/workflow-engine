@@ -1,9 +1,9 @@
-import { Membership, Organization, Prisma, PrismaClient, Role } from "@prisma/client";
+import { Membership, Prisma, PrismaClient, Role } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
-import { MembershipWithOrganization, MembershipWithUser } from "../types/organization.types.js";
+import { MembershipWithOrganization, MembershipWithUser, type MembershipListResult, type OrganizationListResult } from "../types/organization.types.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
-import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
+import { organizationCursorSchema } from "../validations/organization_cursor.schema.js";
 
 export class MembershipRepository{
     constructor(private readonly db: 
@@ -18,11 +18,8 @@ export class MembershipRepository{
     async findOrganizationsByUserId(
         userId: string,
         {limit, cursor}: PaginationInput
-    ): Promise<{
-        organizations: Organization[]
-        pagination: PaginationMeta
-    }>{
-        const decodedCursor = cursor ? decodeCursor(cursor) : undefined
+    ): Promise<OrganizationListResult>{
+        const decodedCursor = cursor ? decodeCursor(cursor, organizationCursorSchema) : undefined
 
         const memberships = await this.db.membership.findMany({
             where: {
@@ -121,11 +118,8 @@ export class MembershipRepository{
     async findByOrganizationId(
         organizationId: string,
         {limit, cursor}: PaginationInput
-    ): Promise<{
-        members: MembershipWithUser[]
-        pagination: PaginationMeta
-    }> {
-        const decodedCursor = cursor ? decodeCursor(cursor) : undefined
+    ): Promise<MembershipListResult> {
+        const decodedCursor = cursor ? decodeCursor(cursor, organizationCursorSchema) : undefined
 
         const memberships = await this.db.membership.findMany({
             where: {

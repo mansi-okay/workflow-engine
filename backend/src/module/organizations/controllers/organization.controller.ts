@@ -14,7 +14,7 @@ import { getMembershipContext } from "../../../shared/utils/http/get_membership_
 import { TransferOwnershipParamsInput } from "../validations/transfer_ownership.schema.js";
 import { RemoveMemberParamsInput } from "../validations/remove_member.schema.js";
 import { LeaveOrganizationParamsInput } from "../validations/leave_organization.schema.js";
-import { OrganizationParamsInput } from "../validations/organization_params.schema.js";
+import { OrganizationParamsInput } from "../../../shared/validators/organization_params.schema.js";
 import { CreateInvitationBodyInput } from "../validations/create_invitation.schema.js";
 import { InvitationService } from "../services/invitation.service.js";
 import { toInvitationResponseDto, toPublicInvitationResponseDto } from "../mappers/invitation.mapper.js";

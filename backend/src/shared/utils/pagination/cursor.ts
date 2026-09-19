@@ -1,44 +1,31 @@
-import type { Cursor } from "../../types/pagination.types.js"
+import type z from "zod"
+import { BadRequestError } from "../../error/HttpErrors.js"
 
-export const encodeCursor = (
-    data: Cursor
-): string => {
+export const encodeCursor = <T>(data: T): string => {
     return Buffer.from(JSON.stringify(data)).toString("base64url")
 }
 
-export const decodeCursor = (cursor: string) : Cursor => {
-    const decoded = JSON.parse(
-        Buffer.from(cursor, "base64url").toString("utf-8")
-    )
+export const decodeCursor = <T>(
+    cursor: string,
+    schema: z.ZodType<T>
+) : T => {
+    try {
 
-    return {
-        timestamp: new Date(decoded.timestamp),
-        id: decoded.id
-    }
-}
+        const decoded = JSON.parse(
+            Buffer.from(cursor, "base64url").toString("utf-8")
+        )
 
-export const encodeSessionCursor = (
-    data: {
-        lastUsedAt: Date
-        createdAt: Date
-        id: string
-    }
-): string => {
-    return Buffer.from(JSON.stringify(data)).toString("base64url")
-}
+        const result = schema.safeParse(decoded)
 
-export const decodeSessionCursor = (cursor: string) : {
-    lastUsedAt: Date
-    createdAt: Date
-    id: string
-} => {
-    const decoded = JSON.parse(
-        Buffer.from(cursor, "base64url").toString("utf-8")
-    )
-
-    return {
-        lastUsedAt: new Date(decoded.lastUsedAt),
-        createdAt: new Date(decoded.createdAt),
-        id: decoded.id
+        if (!result.success){
+            throw new BadRequestError("Invalid pagination cursor")
+        }
+    
+        return result.data
+    } catch (error) {
+        if (error instanceof BadRequestError){
+            throw error
+        }
+        throw new BadRequestError("Invalid pagination cursor")
     }
 }

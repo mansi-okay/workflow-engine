@@ -9,12 +9,11 @@ import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
 import { createExpirationDate } from "../../../shared/utils/date/expiration.js";
 import { env } from "../../../config/env.js";
-import { PublicInvitation } from "../types/organization.types.js";
+import { PublicInvitation, type InvitationListResult } from "../types/organization.types.js";
 import { toInvitationResponseDto } from "../mappers/invitation.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 import { toMembershipResponseDto } from "../mappers/membership.mapper.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
-import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class InvitationService{
     constructor(
@@ -129,10 +128,7 @@ export class InvitationService{
     async getInvitations(
         organizationId: string,
         pagination: PaginationInput
-    ): Promise<{
-        invitations:Invitation[]
-        pagination: PaginationMeta
-    }>{
+    ): Promise<InvitationListResult>{
         return await this.invitationRepository.findByOrganization(
             organizationId,
             pagination

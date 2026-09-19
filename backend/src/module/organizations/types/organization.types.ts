@@ -1,4 +1,5 @@
-import { Prisma, Role } from "@prisma/client";
+import { Prisma, Role, type Invitation, type Organization } from "@prisma/client";
+import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export type MembershipWithOrganization = Prisma.MembershipGetPayload<{
     include: {
@@ -38,6 +39,21 @@ export interface PublicInvitation {
         name: string
     }
     expiresAt: Date,
-    revokedAt: Date | null,
+    revokedAt: Date | null
     acceptedAt: Date | null
+}
+
+export type InvitationListResult = {
+    invitations: Invitation[]
+    pagination: PaginationMeta
+}
+
+export type OrganizationListResult = {
+    organizations: Organization[]
+    pagination: PaginationMeta
+}
+
+export type MembershipListResult = {
+    members: MembershipWithUser[]
+    pagination: PaginationMeta
 }
