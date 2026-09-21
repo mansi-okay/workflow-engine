@@ -4,6 +4,7 @@ import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cur
 import type { WorkflowListResult, WorkflowWithVersions } from "../types/workflow.types.js";
 import type { WorkflowListQueryInput } from "../validations/workflow_list.schema.js";
 import { workflowCursorSchema } from "../validations/workflow_cursor.schema.js";
+import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
 
 export class WorkflowRepository {
     constructor(
@@ -104,5 +105,55 @@ export class WorkflowRepository {
                 currentPublishedVersion: true
             }
         })
+    }
+
+    async findByIdAndOrganizationIdForUpdate(
+        organizationId: string,
+        workflowId: string
+    ): Promise<Workflow | null>{
+        const workflow = await this.db.$queryRaw<Workflow[]>`
+        SELECT * FROM "Workflow"
+        WHERE "id" = ${workflowId} 
+        AND "organizationId" = ${organizationId} 
+        AND "deletedAt" is NULL
+        FOR UPDATE
+        `
+
+        return workflow[0] ?? null
+    }
+
+    async updateMetadata(
+        organizationId: string,
+        workflowId: string,
+        data: UpdateWorkflowMetadataBodyInput
+    ): Promise<boolean>{
+        const result = await this.db.workflow.updateMany({
+            where: {
+                id: workflowId,
+                organizationId,
+                deletedAt: null
+            },
+            data
+        })
+
+        return result.count === 1
+    }
+
+    async softDelete(
+        organizationId: string,
+        workflowId: string
+    ): Promise<boolean>{
+        const result = await this.db.workflow.updateMany({
+            where: {
+                id: workflowId,
+                organizationId,
+                deletedAt: null
+            },
+            data:{
+                deletedAt: new Date()
+            }
+        })
+
+        return result.count === 1
     }
 }

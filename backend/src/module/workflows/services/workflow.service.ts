@@ -1,7 +1,7 @@
 import type { Logger } from "pino";
 import type { CreateWorkflowBodyInput } from "../validations/create_workflow.schema.js";
 import type { UnitOfWork } from "../../../shared/database/unit_of_work.js";
-import { AuditAction, WorkflowVersionStatus } from "@prisma/client";
+import { AuditAction, Role, WorkflowVersionStatus } from "@prisma/client";
 import type { SessionMetadata } from "../../../shared/types/session.types.js";
 import type { CreateWorkflowResult, WorkflowListResult, WorkflowWithVersions } from "../types/workflow.types.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
@@ -9,7 +9,8 @@ import { toWorkflowResponse } from "../mappers/workflow.mapper.js";
 import { toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
 import type { WorkflowRepository } from "../repository/workflow.repository.js";
 import type { WorkflowListQueryInput } from "../validations/workflow_list.schema.js";
-import { NotFoundError } from "../../../shared/error/HttpErrors.js";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../../shared/error/HttpErrors.js";
+import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
 
 export class WorkflowService{
     constructor(
@@ -116,5 +117,133 @@ export class WorkflowService{
         }
 
         return workflow
+    }
+
+    async updateWorkflowMetadata(
+        organizationId: string,
+        currentUserId: string,
+        workflowId: string,
+        data: UpdateWorkflowMetadataBodyInput,
+        metadata: SessionMetadata,
+        logger: Logger
+    ): Promise<void>{
+        await this.unitOfWork.transaction(async(repos) => {
+            const workflow = await repos.workflows.findByIdAndOrganizationId(
+                organizationId,
+                workflowId
+            )
+
+            if (!workflow){
+                throw new NotFoundError("Workflow not found")
+            }
+
+            const updateData = {
+                ...(data.name !== undefined && {
+                    name: data.name
+                }),
+                ...(data.description !== undefined && {
+                    description: data.description
+                })
+            }
+
+            const updatedWorkflow = await repos.workflows.updateMetadata(
+                organizationId,
+                workflowId,
+                updateData
+            )
+
+            if (!updatedWorkflow){
+                throw new ConflictError("Workflow could not be updated")
+            }
+
+            await repos.auditLogs.create({
+                action: AuditAction.WORKFLOW_UPDATED,
+                userId: currentUserId,
+                ipAddress: metadata.ipAddress,
+                userAgent: metadata.userAgent,
+                metadata: {
+                    workflowId: workflow.id,
+                    organizationId,
+                    changes:{
+                        ...(data.name !== undefined && {
+                            name: {
+                                from: workflow.name,
+                                to: data.name
+                            }
+                        }),
+                        ...(data.description !== undefined && {
+                            description: {
+                                from: workflow.description,
+                                to: data.description
+                            }
+                        })
+                    }
+                }
+            })
+        })
+
+        logger.info({
+            workflowId,
+            organizationId,
+            currentUserId
+        }, "Workflow metadata updated successfully")
+    }
+
+    async deleteWorkflow(
+        organizationId: string,
+        currentUserId: string,
+        workflowId: string,
+        metadata: SessionMetadata,
+        logger: Logger
+    ): Promise<void>{
+        await this.unitOfWork.transaction(async (repos) => {
+            const member = await repos.memberships.findByUserAndOrganizationForUpdate(
+                currentUserId,
+                organizationId
+            )
+
+            if (!member){
+                throw new NotFoundError("Membership does not exist")
+            }
+            
+            if (member.role !== Role.OWNER && member.role !== Role.ADMIN){
+                throw new ForbiddenError("Insufficient permission")
+            }
+
+            const workflow = await repos.workflows.findByIdAndOrganizationIdForUpdate(
+                organizationId,
+                workflowId
+            )
+
+            if (!workflow){
+                throw new NotFoundError("Workflow not found")
+            }
+
+            const deletedWorkflow = await repos.workflows.softDelete(
+                organizationId,
+                workflowId
+            )
+
+            if (!deletedWorkflow){
+                throw new ConflictError("Workflow could not be deleted")
+            }
+
+            await repos.auditLogs.create({
+                action: AuditAction.WORKFLOW_DELETED,
+                userId: currentUserId,
+                userAgent: metadata.userAgent,
+                ipAddress: metadata.ipAddress,
+                metadata: {
+                    organizationId,
+                    workflowId
+                }
+            })
+        })
+
+        logger.info({
+            organizationId,
+            currentUserId,
+            workflowId
+        }, "Workflow deleted successfully")
     }
 }

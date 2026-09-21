@@ -9,7 +9,8 @@ import { toWorkflowResponse } from "../mappers/workflow.mapper.js";
 import { toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
 import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
 import type { WorkflowListQueryInput } from "../validations/workflow_list.schema.js";
-import type { GetWorkflowParamsInput } from "../validations/get_workflow.schema.js";
+import type { WorkflowParamsInput } from "../validations/workflow_params.schema.js";
+import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
 
 export class WorkflowController{
     constructor(
@@ -64,10 +65,10 @@ export class WorkflowController{
     }
 
     getWorkflow: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
-        const {workflowId} = req.params as GetWorkflowParamsInput
+        const {workflowId} = req.params as WorkflowParamsInput
         const { id: organizationId } = getOrganizationContext(req)
 
-        const result = await this.workflowService.getWorkflowById(
+        const result = await this.workflowService.getWorkflow(
             organizationId,
             workflowId
         )
@@ -77,13 +78,53 @@ export class WorkflowController{
             message: "Workflow fetched successfully",
             data: {
                 workflow: toWorkflowResponse(result),
-                ... (result.currentDraftVersion && {
-                    draftVersion: toWorkflowVersionResponse(result.currentDraftVersion)
-                }),
-                ...(result.currentPublishedVersion && {
-                    publishedVersion: toWorkflowVersionResponse(result.currentPublishedVersion)
-                })
+                draftVersion: result.currentDraftVersion 
+                ? toWorkflowVersionResponse(result.currentDraftVersion)
+                : null,
+                publishedVersion: result.currentPublishedVersion
+                ? toWorkflowVersionResponse(result.currentPublishedVersion)
+                : null
             }
         })
     }
+
+    updateWorkflowMetadata: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const data = req.body as UpdateWorkflowMetadataBodyInput
+        const {userId} = getAuthContext(req)
+        const { id: organizationId } = getOrganizationContext(req)
+        const metadata = getSessionMetadata(req)
+
+        await this.workflowService.updateWorkflowMetadata(
+            organizationId,
+            userId,
+            workflowId,
+            data,
+            metadata,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow metadata updated successfully"
+        })
+    }
+
+    deleteWorkflow: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const {userId} = getAuthContext(req)
+        const { id: organizationId } = getOrganizationContext(req)
+        const metadata = getSessionMetadata(req)     
+        
+        await this.workflowService.deleteWorkflow(
+            organizationId,
+            userId,
+            workflowId,
+            metadata,
+            req.logger
+        )
+
+        res.status(204).send()
+    }
+
 }

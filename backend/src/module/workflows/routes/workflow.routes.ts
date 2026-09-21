@@ -11,7 +11,9 @@ import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.mi
 import { idempotencyService } from "../../../container/idempotency.container.js";
 import { workflowController } from "../../../container/workflow.container.js";
 import { workflowListQuerySchema } from "../validations/workflow_list.schema.js";
-import { getWorkflowParamsSchema } from "../validations/get_workflow.schema.js";
+import { workflowParamsSchema } from "../validations/workflow_params.schema.js";
+import { updateMembershipBodySchema } from "../../organizations/validations/update_membership.schema.js";
+import { updateWorkflowMetadataBodySchema } from "../validations/update_workflow.schema.js";
 
 const router = Router()
 
@@ -37,8 +39,23 @@ router.route("/:organizationId/workflows")
 router.route("/:organizationId/workflows/:workflowId")
 .get(
     asyncHandler(authenticateUser),
-    validate(getWorkflowParamsSchema, "params"),
+    validate(workflowParamsSchema, "params"),
     asyncHandler(organizationContext),
     asyncHandler(authorizeOrganizationRole(Role.ADMIN,Role.OWNER,Role.MEMBER)),
     asyncHandler(workflowController.getWorkflow)
+)
+.patch(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema,"params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.ADMIN, Role.OWNER, Role.MEMBER)),
+    validate(updateWorkflowMetadataBodySchema,"body"),
+    asyncHandler(workflowController.updateWorkflowMetadata)
+)
+.delete(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
+    asyncHandler(workflowController.deleteWorkflow)
 )
