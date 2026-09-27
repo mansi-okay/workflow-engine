@@ -12,6 +12,8 @@ import { IdempotencyRepository } from "../idempotency/idempotency.repository.js"
 import { OutboxRepository } from "../outbox/outbox.repository.js";
 import { WorkflowRepository } from "../../module/workflows/repository/workflow.repository.js";
 import { WorkflowVersionRepository } from "../../module/workflows/repository/workflow_version.repository.js";
+import { NodeRepository } from "../../module/workflows/repository/node.repository.js";
+import { EdgeRepository } from "../../module/workflows/repository/edge.repository.js";
 
 export class UnitOfWork {
 
@@ -37,7 +39,9 @@ export class UnitOfWork {
             idempotency: new IdempotencyRepository(tx),
             outbox: new OutboxRepository(tx),
             workflows: new WorkflowRepository(tx),
-            workflowVersions: new WorkflowVersionRepository(tx)
+            workflowVersions: new WorkflowVersionRepository(tx),
+            nodes: new NodeRepository(tx),
+            edges: new EdgeRepository(tx)
         }
     }
 }

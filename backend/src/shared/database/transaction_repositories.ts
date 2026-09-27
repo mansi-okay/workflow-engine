@@ -4,6 +4,8 @@ import type { InvitationRepository } from "../../module/organizations/repository
 import type { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
 import type { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
 import type { UserRepository } from "../../module/users/repository/user.repository.js";
+import type { EdgeRepository } from "../../module/workflows/repository/edge.repository.js";
+import type { NodeRepository } from "../../module/workflows/repository/node.repository.js";
 import type { WorkflowRepository } from "../../module/workflows/repository/workflow.repository.js";
 import type { WorkflowVersionRepository } from "../../module/workflows/repository/workflow_version.repository.js";
 import type { AuditRepository } from "../audit/audit.repository.js";
@@ -22,4 +24,6 @@ export interface TransactionRepositories {
     outbox: OutboxRepository
     workflows: WorkflowRepository
     workflowVersions: WorkflowVersionRepository
+    nodes: NodeRepository
+    edges: EdgeRepository
 }

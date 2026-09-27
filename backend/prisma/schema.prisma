@@ -49,6 +49,7 @@ enum AuditAction {
   WORKFLOW_UPDATED
   WORKFLOW_DELETED
 
+  WORKFLOW_GRAPH_UPDATED
 }
 
 enum IdempotencyStatus {
@@ -69,6 +70,7 @@ enum IdempotencyOperation {
   CREATE_WORKFLOW
   UPDATE_WORKFLOW
   DELETE_WORKFLOW
+  UPDATE_WORKFLOW_GRAPH
 }
 
 enum OutboxEventType {
@@ -303,6 +305,7 @@ model WorkflowVersion {
   workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   versionNumber Int
+  revision Int @default(1)
   status        WorkflowVersionStatus
 
   createdBy     String?

@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowVersion } from "@prisma/client"
+import type { Edge, Node, Workflow, WorkflowVersion, WorkflowVersionStatus } from "@prisma/client"
 import type { PaginationMeta } from "../../../shared/types/pagination.types.js"
 
 export type CreateWorkflowResult = {
@@ -24,4 +24,24 @@ export type WorkflowWithVersions = {
     deletedAt: Date | null
     currentDraftVersion: WorkflowVersion | null
     currentPublishedVersion: WorkflowVersion | null
+}
+
+export type WorkflowVersionWithGraph = {
+    id: string
+    workflowId: string
+    versionNumber: number
+    revision: number
+    status: WorkflowVersionStatus
+    createdBy: string | null
+    createdAt: Date
+    publishedAt: Date | null
+    updatedAt: Date
+    publishedBy: string | null
+    nodes: Node[]
+    edges: Edge[]
+}
+
+export type UpdateWorkflowGraphOutput = {
+    draftVersionId: string
+    revision: number
 }

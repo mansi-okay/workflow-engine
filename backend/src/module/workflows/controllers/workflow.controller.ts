@@ -6,15 +6,18 @@ import { getOrganizationContext } from "../../../shared/utils/http/get_organizat
 import { getAuthContext } from "../../../shared/utils/http/get_auth_context.js";
 import { getSessionMetadata } from "../../../shared/utils/http/session_metadata.js";
 import { toWorkflowResponse } from "../mappers/workflow.mapper.js";
-import { toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
+import { toWorkflowGraphResponse, toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
 import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
 import type { WorkflowListQueryInput } from "../validations/workflow_list.schema.js";
 import type { WorkflowParamsInput } from "../validations/workflow_params.schema.js";
 import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
+import type { WorkflowVersionService } from "../services/workflow_version.service.js";
+import type { WorkflowGraphBodyInput } from "../validations/workflow_graph.schema.js";
 
 export class WorkflowController{
     constructor(
-        private readonly workflowService: WorkflowService
+        private readonly workflowService: WorkflowService,
+        private readonly workflowVersionService: WorkflowVersionService
     ){}
 
     createWorkflow: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -126,5 +129,51 @@ export class WorkflowController{
 
         res.status(204).send()
     }
+
+    getDraftGraph: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const { id: organizationId } = getOrganizationContext(req)
+        
+        const result = await this.workflowVersionService.getDraftGraph(
+            organizationId,
+            workflowId
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Draft graph fetched successfully",
+            data: toWorkflowGraphResponse(result)
+        })
+    }
+
+    updateWorkflowGraph: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const { id: organizationId } = getOrganizationContext(req)
+        const {workflowId} = req.params as WorkflowParamsInput
+        const {userId} = getAuthContext(req)
+        const graph = req.body as WorkflowGraphBodyInput
+        const metadata = getSessionMetadata(req)     
+        const {recordId} = getIdempotencyContext(req)
+        
+
+        const draft = await this.workflowVersionService.updateWorkflowGraph(
+            organizationId,
+            workflowId,
+            userId,
+            graph,
+            metadata,
+            recordId,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow graph updated successfully",
+            data: {
+                draftVersionId: draft.draftVersionId,
+                revision: draft.revision
+            }
+        })
+    }
+
 
 }

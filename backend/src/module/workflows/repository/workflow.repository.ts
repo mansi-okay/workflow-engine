@@ -156,4 +156,22 @@ export class WorkflowRepository {
 
         return result.count === 1
     }
+
+    async findCurrentDraftVersionId(
+        organizationId: string,
+        id: string
+    ): Promise<string | null>{
+        const workflow = await this.db.workflow.findFirst({
+            where: {
+                id,
+                organizationId,
+                deletedAt: null
+            },
+            select: {
+                currentDraftVersionId: true
+            }
+        })
+
+        return workflow?.currentDraftVersionId ?? null
+    }
 }
