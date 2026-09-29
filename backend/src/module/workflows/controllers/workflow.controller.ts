@@ -13,6 +13,8 @@ import type { WorkflowParamsInput } from "../validations/workflow_params.schema.
 import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
 import type { WorkflowVersionService } from "../services/workflow_version.service.js";
 import type { WorkflowGraphBodyInput } from "../validations/workflow_graph.schema.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { WorkflowVersionParamsInput } from "../validations/workflow_version_params.schema.js";
 
 export class WorkflowController{
     constructor(
@@ -173,6 +175,94 @@ export class WorkflowController{
                 revision: draft.revision
             }
         })
+    }
+
+    getVersions: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const { id: organizationId } = getOrganizationContext(req)
+        const pagination = req.query as unknown as PaginationInput
+
+        const result = await this.workflowVersionService.getVersions(
+            organizationId,
+            workflowId,
+            pagination
+        )
+
+        const workflowVersionDtos = result.workflowVersions.map(version => toWorkflowVersionResponse(version))
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow versions fetched successfully",
+            data: {
+                workflowVersions: workflowVersionDtos,
+                pagination: result.pagination
+            }
+        })
+    }
+
+    getVersion: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId, workflowVersionId} = req.params as WorkflowVersionParamsInput
+        const { id: organizationId } = getOrganizationContext(req)
+
+        const result = await this.workflowVersionService.getVersion(
+            organizationId,
+            workflowId,
+            workflowVersionId
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow version fetched successfully",
+            data: {
+                workflowVersion: toWorkflowVersionResponse(result)
+            }
+        })
+
+    }
+
+    getVersionGraph: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId, workflowVersionId} = req.params as WorkflowVersionParamsInput
+        const { id: organizationId } = getOrganizationContext(req)
+
+        const result = await this.workflowVersionService.getVersionGraph(
+            organizationId,
+            workflowId,
+            workflowVersionId
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow version graph fetched successfully",
+            data: {
+                graph: toWorkflowGraphResponse(result)
+            }
+        })
+    }
+
+    createDraft: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const {userId} = getAuthContext(req)
+        const { id: organizationId } = getOrganizationContext(req)
+        const metadata = getSessionMetadata(req)    
+        const {recordId} = getIdempotencyContext(req)
+
+        const result = await this.workflowVersionService.createDraft(
+            organizationId,
+            userId,
+            workflowId,
+            metadata,
+            recordId,
+            req.logger
+        )
+
+        res.status(201).json({
+            success: true,
+            message: "Workflow draft created successfully",
+            data: {
+                draftVersion: toWorkflowVersionResponse(result)
+            }
+        })
+
     }
 
 

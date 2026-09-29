@@ -29,6 +29,20 @@ export class WorkflowService{
     ):Promise<CreateWorkflowResult>{
         try {
             const workflowData = await this.unitOfWork.transaction(async (repos) => {
+
+                const member = await repos.memberships.findByIdAndOrganizationForUpdate(
+                    currentUserId,
+                    organizationId
+                )
+    
+                if (!member){
+                    throw new NotFoundError("Membership does not exist")
+                }
+    
+                if (member.role !== Role.OWNER && member.role !== Role.ADMIN){
+                    throw new ForbiddenError("Insufficient permission")
+                }
+
                 const workflow = await repos.workflows.create({
                     organizationId,
                     name: data.name,
@@ -128,13 +142,30 @@ export class WorkflowService{
         logger: Logger
     ): Promise<void>{
         await this.unitOfWork.transaction(async(repos) => {
-            const workflow = await repos.workflows.findByIdAndOrganizationId(
+            const member = await repos.memberships.findByIdAndOrganizationForUpdate(
+                currentUserId,
+                organizationId
+            )
+
+            if (!member){
+                throw new NotFoundError("Membership does not exist")
+            }
+
+            if (member.role !== Role.OWNER && member.role !== Role.ADMIN){
+                throw new ForbiddenError("Insufficient permission")
+            }
+
+            const workflow = await repos.workflows.findByIdAndOrganizationIdForUpdate(
                 organizationId,
                 workflowId
             )
 
             if (!workflow){
                 throw new NotFoundError("Workflow not found")
+            }
+
+            if(workflow.deletedAt){
+                throw new ConflictError("Workflow has been deleted")
             }
 
             const updateData = {
@@ -217,6 +248,10 @@ export class WorkflowService{
 
             if (!workflow){
                 throw new NotFoundError("Workflow not found")
+            }
+
+            if (workflow.deletedAt){
+                throw new ConflictError("Workflow has been deleted")
             }
 
             const deletedWorkflow = await repos.workflows.softDelete(

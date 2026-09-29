@@ -14,6 +14,8 @@ import { workflowListQuerySchema } from "../validations/workflow_list.schema.js"
 import { workflowParamsSchema } from "../validations/workflow_params.schema.js";
 import { updateWorkflowMetadataBodySchema } from "../validations/update_workflow.schema.js";
 import { workflowGraphSchema } from "../validations/workflow_graph.schema.js";
+import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
+import { workflowVersionParamsSchema } from "../validations/workflow_version_params.schema.js";
 
 const router = Router()
 
@@ -22,7 +24,7 @@ router.route("/:organizationId/workflows")
     asyncHandler(authenticateUser),
     validate(organizationParamsSchema,"params"),
     asyncHandler(organizationContext),
-    asyncHandler(authorizeOrganizationRole(Role.ADMIN,Role.OWNER,Role.MEMBER)),
+    asyncHandler(authorizeOrganizationRole(Role.ADMIN,Role.OWNER)),
     validate(createWorkflowBodySchema, "body"),
     idempotencyMiddleware(idempotencyService,IdempotencyOperation.CREATE_WORKFLOW),
     asyncHandler(workflowController.createWorkflow)
@@ -48,7 +50,7 @@ router.route("/:organizationId/workflows/:workflowId")
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema,"params"),
     asyncHandler(organizationContext),
-    asyncHandler(authorizeOrganizationRole(Role.ADMIN, Role.OWNER, Role.MEMBER)),
+    asyncHandler(authorizeOrganizationRole(Role.ADMIN, Role.OWNER)),
     validate(updateWorkflowMetadataBodySchema,"body"),
     asyncHandler(workflowController.updateWorkflowMetadata)
 )
@@ -72,8 +74,46 @@ router.route("/:organizationId/workflows/:workflowId/draft/graph")
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema,"params"),
     asyncHandler(organizationContext),
-    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN,Role.MEMBER)),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
     validate(workflowGraphSchema, "body"),
     idempotencyMiddleware(idempotencyService, IdempotencyOperation.UPDATE_WORKFLOW_GRAPH),
     asyncHandler(workflowController.updateWorkflowGraph)
+)
+
+router.route("/:organizationId/workflows/:workflowId/versions")
+.get(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN,Role.MEMBER)),
+    validate(paginationSchema, "query"),
+    asyncHandler(workflowController.getVersions)
+)
+
+router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId")
+.get(
+    asyncHandler(authenticateUser),
+    validate(workflowVersionParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN,Role.MEMBER)),
+    asyncHandler(workflowController.getVersion)
+)
+
+router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId/graph")
+.get(
+    asyncHandler(authenticateUser),
+    validate(workflowVersionParamsSchema,"params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN,Role.MEMBER)),
+    asyncHandler(workflowController.getVersionGraph)
+)
+
+router.route("/:organizationId/workflows/:workflowId/drafts")
+.post(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.CREATE_WORKFLOW_DRAFT),
+    asyncHandler(workflowController.createDraft)
 )

@@ -1,6 +1,10 @@
 import { WorkflowVersionStatus, type Prisma, type PrismaClient, type WorkflowVersion } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
-import type { WorkflowVersionWithGraph } from "../types/workflow.types.js";
+import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { WorkflowVersionListResult, WorkflowVersionWithGraph } from "../types/version.types.js";
+import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
+import { workflowCursorSchema } from "../validations/workflow_cursor.schema.js";
+import { workflowVersionCursorSchema } from "../validations/workflow_version_cursor.schema.js";
 
 export class WorkflowVersionRepository {
     constructor(
@@ -22,7 +26,8 @@ export class WorkflowVersionRepository {
                 workflowId,
                 status: WorkflowVersionStatus.DRAFT,
                 workflow: {
-                    organizationId
+                    organizationId,
+                    deletedAt: null
                 }
             },
             include: {
@@ -39,6 +44,7 @@ export class WorkflowVersionRepository {
         const draft = await this.db.$queryRaw<WorkflowVersion[]>`
         SELECT * FROM "WorkflowVersion"
         WHERE "id" = ${draftVersionId}
+        AND "status" = 'DRAFT'
         FOR UPDATE 
         `
         return draft[0] ?? null
@@ -61,5 +67,133 @@ export class WorkflowVersionRepository {
 
         return result.count === 1
     }
+
+    async findVersionsByWorkflowIdAndOrganizationId(
+        workflowId: string,
+        organizationId: string,
+        {limit, cursor}: PaginationInput
+    ): Promise<WorkflowVersionListResult>{
+
+        const decodedCursor = cursor ? decodeCursor(cursor, workflowVersionCursorSchema) : undefined
+
+        const versions = await this.db.workflowVersion.findMany({
+            where: {
+                workflowId,
+                workflow: {
+                    organizationId,
+                    deletedAt: null
+                },
+                ...(decodedCursor && {
+                            versionNumber: {
+                                lt: decodedCursor.versionNumber
+                            }
+                        }
+                )
+            },
+            orderBy: {versionNumber: "desc"},
+            take: limit+1
+        })
+
+        const hasNextPage = versions.length > limit
+
+        const items = hasNextPage 
+        ? versions.slice(0, limit)
+        : versions
+
+        const lastWorkflowVersion = items[items.length-1]
+
+        const nextCursor = hasNextPage && lastWorkflowVersion
+        ? encodeCursor({
+            versionNumber: lastWorkflowVersion.versionNumber
+        })
+        : null
+
+        return {
+            workflowVersions: items,
+            pagination: {
+                nextCursor,
+                hasNextPage
+            }
+        }
+    }
+
+    async findByIdAndWorkflowIdAndOrganizationId(
+        organizationId: string,
+        workflowId: string,
+        workflowVersionId: string
+    ): Promise<WorkflowVersion | null>{
+        return this.db.workflowVersion.findFirst({
+            where: {
+                id: workflowVersionId,
+                workflowId,
+                workflow:{
+                    organizationId,
+                    deletedAt: null
+                }
+            }
+        })
+    }
+
+    async findGraphByIdAndWorkflowIdAndOrganizationId(
+        organizationId: string,
+        workflowId: string,
+        workflowVersionId: string
+    ): Promise<WorkflowVersionWithGraph | null>{
+        return this.db.workflowVersion.findFirst({
+            where:{
+                id: workflowVersionId,
+                workflowId,
+                workflow: {
+                    organizationId,
+                    deletedAt: null
+                }
+            },
+            include: {
+                nodes: true,
+                edges: true
+            }
+        })
+    }
+
+    async findLatestVersionNumber(
+        workflowId: string
+    ): Promise<number>{
+        const latestVersion = await this.db.workflowVersion.findFirst({
+            where: {
+                workflowId
+            },
+            orderBy: {
+                versionNumber: "desc"
+            },
+            select: {
+                versionNumber: true
+            }
+        })
+
+        return latestVersion?.versionNumber ?? 0
+    }
+
+    async findPublishedGraphByIdAndWorkflowIdAndOrganizationId(
+        organizationId: string,
+        workflowId: string,
+        workflowVersionId: string
+    ): Promise<WorkflowVersionWithGraph | null>{
+        return this.db.workflowVersion.findFirst({
+            where:{
+                id: workflowVersionId,
+                workflowId,
+                status: WorkflowVersionStatus.PUBLISHED,
+                workflow: {
+                    organizationId,
+                    deletedAt: null
+                }
+            },
+            include: {
+                nodes: true,
+                edges: true
+            }
+        })
+    }
+
 
 }

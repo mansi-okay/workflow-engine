@@ -1,8 +1,8 @@
 import type { WorkflowVersion } from "@prisma/client";
 import type { WorkflowGraphResponseDto, WorkflowVersionResponseDto } from "../dtos/workflow_version_response.dto.js";
-import type { WorkflowVersionWithGraph } from "../types/workflow.types.js";
 import { toNodeResponse } from "./node.mapper.js";
 import { toEdgeResponse } from "./edge.mapper.js";
+import type { WorkflowVersionWithGraph } from "../types/version.types.js";
 
 export const toWorkflowVersionResponse = (data: WorkflowVersion): WorkflowVersionResponseDto => ({
     id: data.id,
