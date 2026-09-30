@@ -3,7 +3,6 @@ import { prisma } from "../../../lib/prisma.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 import type { WorkflowVersionListResult, WorkflowVersionWithGraph } from "../types/version.types.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
-import { workflowCursorSchema } from "../validations/workflow_cursor.schema.js";
 import { workflowVersionCursorSchema } from "../validations/workflow_version_cursor.schema.js";
 
 export class WorkflowVersionRepository {
@@ -32,7 +31,12 @@ export class WorkflowVersionRepository {
             },
             include: {
                 nodes: true,
-                edges: true
+                edges: {
+                    include: {
+                        sourceNode: true,
+                        targetNode: true
+                    }
+                }
             }
         })
     }
@@ -150,7 +154,12 @@ export class WorkflowVersionRepository {
             },
             include: {
                 nodes: true,
-                edges: true
+                edges: {
+                    include: {
+                        sourceNode: true,
+                        targetNode: true
+                    }
+                }
             }
         })
     }
@@ -190,10 +199,89 @@ export class WorkflowVersionRepository {
             },
             include: {
                 nodes: true,
-                edges: true
+                edges: {
+                    include: {
+                        sourceNode: true,
+                        targetNode: true
+                    }
+                }
             }
         })
     }
 
+    async findDraftGraphByIdAndWorkflowIdAndOrganizationId(
+        organizationId: string,
+        workflowId: string,
+        workflowVersionId: string
+    ): Promise<WorkflowVersionWithGraph | null>{
+        return this.db.workflowVersion.findFirst({
+            where:{
+                id: workflowVersionId,
+                workflowId,
+                status: WorkflowVersionStatus.DRAFT,
+                workflow: {
+                    organizationId,
+                    deletedAt: null
+                }
+            },
+            include: {
+                nodes: true,
+                edges: {
+                    include: {
+                        sourceNode: true,
+                        targetNode: true
+                    }
+                }
+            }
+        })
+    }
 
+    async archiveVersion(
+        publishedVersionId: string,
+        organizationId: string,
+        workflowId: string
+    ): Promise<boolean>{
+        const result =  await this.db.workflowVersion.updateMany({
+            where:{
+                id: publishedVersionId,
+                workflowId,
+                workflow:{
+                    organizationId,
+                    deletedAt: null
+                },
+                status: WorkflowVersionStatus.PUBLISHED
+            },
+            data: {
+                status: WorkflowVersionStatus.ARCHIVED
+            }
+        })
+
+        return result.count === 1
+    }
+
+    async publishVersion(
+        draftVersionId: string,
+        organizationId: string,
+        currentUserId: string,
+        workflowId: string  
+    ): Promise<boolean>{
+        const result = await this.db.workflowVersion.updateMany({
+            where: {
+                id: draftVersionId,
+                workflowId,
+                workflow:{
+                    organizationId,
+                    deletedAt: null
+                },
+                status: WorkflowVersionStatus.DRAFT                
+            },
+            data: {
+                status: WorkflowVersionStatus.PUBLISHED,
+                publishedBy: currentUserId,
+                publishedAt: new Date()
+            }
+        })
+
+        return result.count === 1
+    }
 }

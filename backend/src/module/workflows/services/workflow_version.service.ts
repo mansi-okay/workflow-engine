@@ -11,6 +11,7 @@ import type { IdempotencyService } from "../../../shared/idempotency/idempotency
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 import type { WorkflowVersionListResult, WorkflowVersionWithGraph } from "../types/version.types.js";
 import { toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
+import { validateWorkflowForPublish } from "../validators/workflow_publish.validator.js";
 
 export class WorkflowVersionService {
     constructor(
@@ -369,6 +370,155 @@ export class WorkflowVersionService {
             })
 
             return draftData
+        } catch (error) {
+            await this.idempotencyService.markFailed(idempotencyRecordId)
+            throw error
+        }
+    }
+
+    async publishWorkflowVersion(
+        organizationId: string,
+        currentUserId: string,
+        workflowId: string,
+        metadata: SessionMetadata,
+        idempotencyRecordId: string,
+        logger: Logger
+    ){
+        try {
+            const publishData = await this.unitOfWork.transaction(async (repos) => {
+                    const member = await repos.memberships.findByIdAndOrganizationForUpdate(
+                        currentUserId,
+                        organizationId
+                    )
+        
+                    if (!member){
+                        throw new NotFoundError("Membership does not exist")
+                    }
+        
+                    if (member.role !== Role.OWNER && member.role !== Role.ADMIN){
+                        throw new ForbiddenError("Insufficient permission")
+                    }
+        
+                    const workflow = await repos.workflows.findByIdAndOrganizationIdForUpdate(
+                        organizationId,
+                        workflowId
+                    )
+        
+                    if (!workflow){
+                        throw new NotFoundError("Workflow not found")
+                    }
+        
+                    if (workflow.deletedAt){
+                        throw new ConflictError("Workflow has been deleted")
+                    }
+    
+                    const currentDraftVersionId = workflow.currentDraftVersionId
+    
+                    if (!currentDraftVersionId){
+                        throw new NotFoundError("Current draft version does not exist")
+                    }
+    
+                    const currentDraft = await repos.workflowVersions.findDraftGraphByIdAndWorkflowIdAndOrganizationId(
+                        organizationId,
+                        workflowId,
+                        currentDraftVersionId
+                    )
+    
+                    if (!currentDraft){
+                        throw new NotFoundError("Current draft version does not exist")
+                    }
+    
+                    const currentDraftGraph = {
+                        revision: currentDraft.revision,
+                        nodes: currentDraft.nodes.map(node => ({
+                            nodeKey: node.nodeKey,
+                            type: node.type,
+                            config: node.config,
+                            position: node.position
+                        })),
+                        edges: currentDraft.edges.map(edge => ({
+                            sourceNodeKey: edge.sourceNode.nodeKey,
+                            targetNodeKey:edge.targetNode.nodeKey
+                        }))
+                    } as WorkflowGraphBodyInput
+    
+                    validateWorkflowForPublish(currentDraftGraph)
+    
+                    if (workflow.currentPublishedVersionId){
+                        const archived = await repos.workflowVersions.archiveVersion(
+                            workflow.currentPublishedVersionId,
+                            organizationId,
+                            workflowId
+                        )
+    
+                        if (!archived){
+                            throw new ConflictError("Could not archive the current published version")
+                        }
+                    }
+    
+                    const published = await repos.workflowVersions.publishVersion(
+                        currentDraft.id,
+                        organizationId,
+                        currentUserId,
+                        workflowId
+                    )
+    
+                    if (!published){
+                        throw new ConflictError("Could not publish the current draft version")
+                    }
+    
+                    const updatedWorkflow = await repos.workflows.updateVersionPointers(
+                        organizationId,
+                        workflowId,
+                        currentDraft.id
+                    )
+    
+                    await repos.auditLogs.create({
+                        action: AuditAction.WORKFLOW_VERSION_PUBLISHED,
+                        userId: currentUserId,
+                        ipAddress: metadata.ipAddress,
+                        userAgent: metadata.userAgent,
+                        metadata: {
+                            organizationId,
+                            workflowId,
+                            ...(workflow.currentPublishedVersionId && {
+                                archivedVersion: workflow.currentPublishedVersionId
+                            }),
+                            publishedVersion: updatedWorkflow.currentPublishedVersionId
+                        }
+                    })
+
+                    const resBody = {
+                        success: true,
+                        message: "Workflow version published successfully",
+                        data: {
+                            publishedVersionId: updatedWorkflow.currentPublishedVersionId
+                        }
+                    }
+
+                    await repos.idempotency.markCompleted(
+                        idempotencyRecordId,
+                        200,
+                        resBody
+                    )
+
+                    return {
+                        archivedVersionId: workflow.currentPublishedVersionId,
+                        publishedVersionId: updatedWorkflow.currentPublishedVersionId
+                    }
+            })
+
+            logger.info({
+                organizationId,
+                workflowId,
+                ...(publishData.archivedVersionId && {
+                    archivedVersionId: publishData.archivedVersionId
+                }),
+                publishedVersionId: publishData.publishedVersionId,
+                publishedBy: currentUserId
+            },"Workflow version published")
+
+            return publishData.publishedVersionId
         } catch (error) {
             await this.idempotencyService.markFailed(idempotencyRecordId)
             throw error

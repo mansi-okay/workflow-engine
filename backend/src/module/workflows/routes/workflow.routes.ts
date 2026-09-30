@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../../shared/utils/common/asyncHandler.js";
-import { authenticateUser } from "../../../container/auth.container.js";
+import { authController, authenticateUser } from "../../../container/auth.container.js";
 import { validate } from "../../../shared/middleware/validate.middleware.js";
 import { organizationParamsSchema } from "../../../shared/validators/organization_params.schema.js";
 import { organizationContext } from "../../../container/organization.container.js";
@@ -116,4 +116,14 @@ router.route("/:organizationId/workflows/:workflowId/drafts")
     asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
     idempotencyMiddleware(idempotencyService, IdempotencyOperation.CREATE_WORKFLOW_DRAFT),
     asyncHandler(workflowController.createDraft)
+)
+
+router.route("/:organizationId/workflows/:workflowId/publish")
+.post(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.PUBLISH_WORKFLOW_VERSION),
+    asyncHandler(workflowController.publishWorkflowVersion)
 )

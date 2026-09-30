@@ -265,5 +265,30 @@ export class WorkflowController{
 
     }
 
+    publishWorkflowVersion: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const {userId} = getAuthContext(req)
+        const { id: organizationId } = getOrganizationContext(req)
+        const metadata = getSessionMetadata(req)    
+        const {recordId} = getIdempotencyContext(req)   
+        
+        const result = await this.workflowVersionService.publishWorkflowVersion(
+            organizationId,
+            userId,
+            workflowId,
+            metadata,
+            recordId,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow version published successfully",
+            data: {
+                publishedVersionId: result
+            }            
+        })
+    }
+
 
 }

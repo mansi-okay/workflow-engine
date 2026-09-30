@@ -156,4 +156,22 @@ export class WorkflowRepository {
 
         return result.count === 1
     }
+
+    async updateVersionPointers(
+        organizationId: string,
+        workflowId: string,
+        publishedVersionId: string
+    ): Promise<Workflow>{
+        return this.db.workflow.update({
+            where: {
+                id: workflowId,
+                organizationId,
+                deletedAt: null
+            },
+            data: {
+                currentPublishedVersionId: publishedVersionId,
+                currentDraftVersionId: null,
+            },
+        })
+    }
 }

@@ -51,6 +51,7 @@ enum AuditAction {
 
   WORKFLOW_GRAPH_UPDATED
   WORKFLOW_DRAFT_CREATED
+  WORKFLOW_VERSION_PUBLISHED
 }
 
 enum IdempotencyStatus {
@@ -73,6 +74,7 @@ enum IdempotencyOperation {
   DELETE_WORKFLOW
   UPDATE_WORKFLOW_GRAPH
   CREATE_WORKFLOW_DRAFT
+  PUBLISH_WORKFLOW_VERSION
 }
 
 enum OutboxEventType {
