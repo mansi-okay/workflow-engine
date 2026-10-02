@@ -16,6 +16,7 @@ import { updateWorkflowMetadataBodySchema } from "../validations/update_workflow
 import { workflowGraphSchema } from "../validations/workflow_graph.schema.js";
 import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
 import { workflowVersionParamsSchema } from "../validations/workflow_version_params.schema.js";
+import { rollbackWorkflowVersionSchema } from "../validations/rollback_version.schema.js";
 
 const router = Router()
 
@@ -126,4 +127,15 @@ router.route("/:organizationId/workflows/:workflowId/publish")
     asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
     idempotencyMiddleware(idempotencyService, IdempotencyOperation.PUBLISH_WORKFLOW_VERSION),
     asyncHandler(workflowController.publishWorkflowVersion)
+)
+
+router.route("/:organizationId/workflows/:workflowId/rollback")
+.post(
+    asyncHandler(authenticateUser),
+    validate(workflowParamsSchema, "params"),
+    asyncHandler(organizationContext),
+    asyncHandler(authorizeOrganizationRole(Role.OWNER,Role.ADMIN)),
+    validate(rollbackWorkflowVersionSchema, "body"),
+    idempotencyMiddleware(idempotencyService, IdempotencyOperation.ROLLBACK_WORKFLOW_VERSION),
+    asyncHandler(workflowController.rollbackWorkflowVersion)
 )

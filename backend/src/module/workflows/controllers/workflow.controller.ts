@@ -15,6 +15,7 @@ import type { WorkflowVersionService } from "../services/workflow_version.servic
 import type { WorkflowGraphBodyInput } from "../validations/workflow_graph.schema.js";
 import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
 import type { WorkflowVersionParamsInput } from "../validations/workflow_version_params.schema.js";
+import type { RollbackWorkflowVersionBodyInput } from "../validations/rollback_version.schema.js";
 
 export class WorkflowController{
     constructor(
@@ -290,5 +291,31 @@ export class WorkflowController{
         })
     }
 
+    rollbackWorkflowVersion: AsyncController = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const {workflowId} = req.params as WorkflowParamsInput
+        const {workflowVersionId} = req.body as RollbackWorkflowVersionBodyInput
+        const {userId} = getAuthContext(req)
+        const { id: organizationId } = getOrganizationContext(req)
+        const metadata = getSessionMetadata(req)    
+        const {recordId} = getIdempotencyContext(req)  
+
+        const result = await this.workflowVersionService.rollbackWorkflowVersion(
+            organizationId,
+            userId,
+            workflowId,
+            workflowVersionId,
+            metadata,
+            recordId,
+            req.logger
+        )
+
+        res.status(200).json({
+            success: true,
+            message: "Workflow version rollbacked successfully",
+            data: {
+                rollbackVersionId: result
+            }
+        })
+    }
 
 }

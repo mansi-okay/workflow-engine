@@ -383,7 +383,7 @@ export class WorkflowVersionService {
         metadata: SessionMetadata,
         idempotencyRecordId: string,
         logger: Logger
-    ){
+    ): Promise<string>{
         try {
             const publishData = await this.unitOfWork.transaction(async (repos) => {
                     const member = await repos.memberships.findByIdAndOrganizationForUpdate(
@@ -472,6 +472,10 @@ export class WorkflowVersionService {
                         workflowId,
                         currentDraft.id
                     )
+
+                    if (!updatedWorkflow){
+                        throw new ConflictError("Could not update workflow pointers")
+                    }
     
                     await repos.auditLogs.create({
                         action: AuditAction.WORKFLOW_VERSION_PUBLISHED,
@@ -484,7 +488,7 @@ export class WorkflowVersionService {
                             ...(workflow.currentPublishedVersionId && {
                                 archivedVersion: workflow.currentPublishedVersionId
                             }),
-                            publishedVersion: updatedWorkflow.currentPublishedVersionId
+                            publishedVersion: currentDraft.id
                         }
                     })
 
@@ -492,7 +496,7 @@ export class WorkflowVersionService {
                         success: true,
                         message: "Workflow version published successfully",
                         data: {
-                            publishedVersionId: updatedWorkflow.currentPublishedVersionId
+                            publishedVersionId: currentDraft.id
                         }
                     }
 
@@ -504,7 +508,7 @@ export class WorkflowVersionService {
 
                     return {
                         archivedVersionId: workflow.currentPublishedVersionId,
-                        publishedVersionId: updatedWorkflow.currentPublishedVersionId
+                        publishedVersionId: currentDraft.id
                     }
             })
 
@@ -518,11 +522,212 @@ export class WorkflowVersionService {
                 publishedBy: currentUserId
             },"Workflow version published")
 
-            return publishData.publishedVersionId
+            return publishData.publishedVersionId!
         } catch (error) {
             await this.idempotencyService.markFailed(idempotencyRecordId)
             throw error
         }
     }
 
-}
+    async rollbackWorkflowVersion(
+        organizationId: string,
+        currentUserId: string,
+        workflowId: string,
+        archivedWorkflowVersionId: string,
+        metadata: SessionMetadata,
+        idempotencyRecordId: string,
+        logger: Logger
+    ): Promise<string>{
+        try {
+            const rollbackData = await this.unitOfWork.transaction(async (repos) => {
+                    const member = await repos.memberships.findByIdAndOrganizationForUpdate(
+                        currentUserId,
+                        organizationId
+                    )
+        
+                    if (!member){
+                        throw new NotFoundError("Membership does not exist")
+                    }
+        
+                    if (member.role !== Role.OWNER && member.role !== Role.ADMIN){
+                        throw new ForbiddenError("Insufficient permission")
+                    }
+        
+                    const workflow = await repos.workflows.findByIdAndOrganizationIdForUpdate(
+                        organizationId,
+                        workflowId
+                    )
+        
+                    if (!workflow){
+                        throw new NotFoundError("Workflow not found")
+                    }
+        
+                    if (workflow.deletedAt){
+                        throw new ConflictError("Workflow has been deleted")
+                    }
+
+                    const currentDraftVersionId = workflow.currentDraftVersionId
+
+                    if (currentDraftVersionId){
+                        throw new ConflictError("An active draft already exists. Publish or discard the draft before rollback")
+                    }
+    
+                    const archivedVersion = await repos.workflowVersions.findArchivedGraphByIdAndWorkflowIdAndOrganizationId(
+                        organizationId,
+                        workflowId,
+                        archivedWorkflowVersionId
+                    )
+    
+                    if (!archivedVersion){
+                        throw new NotFoundError("Archived version does not exist")
+                    }
+
+                    const rollbackGraph = {
+                        revision: 1,
+                        nodes: archivedVersion.nodes.map(node => ({
+                            nodeKey: node.nodeKey,
+                            type: node.type,
+                            config: node.config,
+                            position: node.position
+                        })),
+                        edges: archivedVersion.edges.map(edge => ({
+                            sourceNodeKey: edge.sourceNode.nodeKey,
+                            targetNodeKey: edge.targetNode.nodeKey
+                        }))
+                    } as WorkflowGraphBodyInput
+
+                    validateWorkflowForPublish(rollbackGraph)
+
+                    const latestVersionNumber = await repos.workflowVersions.findLatestVersionNumber(workflowId)
+
+                    const rollbackVersion = await repos.workflowVersions.create({
+                        workflowId,
+                        versionNumber: latestVersionNumber+1,
+                        status: WorkflowVersionStatus.DRAFT,
+                        createdBy: currentUserId
+                    })
+
+                    if (!rollbackVersion){
+                        throw new ConflictError("Failed to create new workflow version")
+                    }
+
+                    const mapOfIds = new Map<string, string>()
+
+                    for(const node of archivedVersion.nodes){
+                        const newNode = await repos.nodes.create({
+                            workflowVersionId: rollbackVersion.id,
+                            nodeKey: node.nodeKey,
+                            type: node.type,
+                            config: node.config as NodeInput["config"],
+                            position: node.position as NodeInput["position"]
+                        })
+
+                        mapOfIds.set(node.id, newNode.id)
+                    }
+
+                    for (const edge of archivedVersion.edges){
+                        const newSourceNodeId = mapOfIds.get(edge.sourceNodeId)
+                        const newTargetNodeId = mapOfIds.get(edge.targetNodeId)
+        
+                        if (!newSourceNodeId || !newTargetNodeId){
+                            throw new BadRequestError("Edge references an invalid node")
+                        }
+
+                        await repos.edges.create({
+                            workflowVersionId: rollbackVersion.id,
+                            sourceNodeId: newSourceNodeId,
+                            targetNodeId: newTargetNodeId
+                        })
+                    
+                    }
+                    
+                    const currentPublishedVersionId = workflow.currentPublishedVersionId
+
+                    if (currentPublishedVersionId){
+                        const archived = await repos.workflowVersions.archiveVersion(
+                            currentPublishedVersionId,
+                            organizationId,
+                            workflowId
+                        )
+    
+                        if (!archived){
+                            throw new ConflictError("Could not archive the current published version")
+                        }
+                    }
+    
+                    const published = await repos.workflowVersions.publishVersion(
+                        rollbackVersion.id,
+                        organizationId,
+                        currentUserId,
+                        workflowId
+                    )
+    
+                    if (!published){
+                        throw new ConflictError("Could not publish the draft version")
+                    }
+    
+                    const updatedWorkflow = await repos.workflows.updateVersionPointers(
+                        organizationId,
+                        workflowId,
+                        rollbackVersion.id
+                    )
+
+                    if (!updatedWorkflow){
+                        throw new ConflictError("Could not update workflow pointers")
+                    }
+    
+                    await repos.auditLogs.create({
+                        action: AuditAction.WORKFLOW_VERSION_ROLLED_BACK,
+                        userId: currentUserId,
+                        ipAddress: metadata.ipAddress,
+                        userAgent: metadata.userAgent,
+                        metadata: {
+                            organizationId,
+                            workflowId,
+                            rollbackSourceVersion: archivedWorkflowVersionId,
+                            ...(workflow.currentPublishedVersionId && {
+                                archivedVersion: workflow.currentPublishedVersionId
+                            }),
+                            publishedVersion: rollbackVersion.id
+                        }
+                    })
+
+                    const resBody = {
+                        success: true,
+                        message: "Workflow version rolled back successfully",
+                        data: {
+                            rollbackVersionId: rollbackVersion.id
+                        }
+                    }
+
+                    await repos.idempotency.markCompleted(
+                        idempotencyRecordId,
+                        200,
+                        resBody
+                    )
+
+                    return {
+                        archivedVersionId: workflow.currentPublishedVersionId,
+                        publishedVersionId: rollbackVersion.id
+                    }
+            })
+
+            logger.info({
+                organizationId,
+                workflowId,
+                rollbackSourceVersion: archivedWorkflowVersionId,
+                ...(rollbackData .archivedVersionId && {
+                    archivedVersionId: rollbackData .archivedVersionId
+                }),
+                publishedVersionId: rollbackData .publishedVersionId,
+                publishedBy: currentUserId
+            },"Workflow version rolled back")
+
+            return rollbackData.publishedVersionId
+        } catch (error) {
+            await this.idempotencyService.markFailed(idempotencyRecordId)
+            throw error
+        }
+    }
+    
+}   

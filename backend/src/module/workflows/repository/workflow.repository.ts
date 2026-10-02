@@ -161,8 +161,8 @@ export class WorkflowRepository {
         organizationId: string,
         workflowId: string,
         publishedVersionId: string
-    ): Promise<Workflow>{
-        return this.db.workflow.update({
+    ): Promise<boolean>{
+        const update = await this.db.workflow.updateMany({
             where: {
                 id: workflowId,
                 organizationId,
@@ -173,5 +173,7 @@ export class WorkflowRepository {
                 currentDraftVersionId: null,
             },
         })
+
+        return update.count === 1
     }
 }

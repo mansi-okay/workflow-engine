@@ -284,4 +284,32 @@ export class WorkflowVersionRepository {
 
         return result.count === 1
     }
+
+    async findArchivedGraphByIdAndWorkflowIdAndOrganizationId(
+        organizationId: string,
+        workflowId: string,
+        workflowVersionId: string
+    ): Promise<WorkflowVersionWithGraph | null>{
+        return this.db.workflowVersion.findFirst({
+            where:{
+                id: workflowVersionId,
+                workflowId,
+                status: WorkflowVersionStatus.ARCHIVED,
+                workflow: {
+                    organizationId,
+                    deletedAt: null
+                }
+            },
+            include: {
+                nodes: true,
+                edges: {
+                    include: {
+                        sourceNode: true,
+                        targetNode: true
+                    }
+                }
+            }
+        })
+    }
+
 }
