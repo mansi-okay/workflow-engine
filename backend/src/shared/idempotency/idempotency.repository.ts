@@ -2,7 +2,8 @@ import { IdempotencyStatus, Prisma, PrismaClient, type IdempotencyKey, type Idem
 import { prisma } from "../../lib/prisma.js";
 import { isPrismaUniqueConstraintError } from "../database/prisma_errors.js";
 import { IdempotencyKeyConflictError } from "../error/HttpErrors.js";
-import type { JsonValue } from "./idempotency.types.js";
+import type { JsonValue } from "../types/json.types.js";
+import type { IdempotencyCreateInput } from "./idempotency.types.js";
 
 export class IdempotencyRepository{
     constructor(
@@ -28,10 +29,19 @@ export class IdempotencyRepository{
     }
 
     async create( 
-        data: Prisma.IdempotencyKeyUncheckedCreateInput
+        data: IdempotencyCreateInput
     ): Promise<IdempotencyKey>{
         try{
-            return await this.db.idempotencyKey.create({ data })
+            return await this.db.idempotencyKey.create({ 
+                data:{
+                    key: data.key,
+                    userId: data.userId,
+                    requestHash: data.requestHash,
+                    operation: data.operation,
+                    status: data.status,
+                    expiresAt: data.expiresAt
+                }
+            })
         }catch(error){
             if (isPrismaUniqueConstraintError(error, ["userId", "key", "operation"])){
                 throw new IdempotencyKeyConflictError()
@@ -45,7 +55,9 @@ export class IdempotencyRepository{
         responseStatus: number,
         responseBody: JsonValue
     ):Promise<IdempotencyKey>{
-        const prismaResponseBody = responseBody === null ? Prisma.JsonNull : responseBody
+        const prismaResponseBody = responseBody === null 
+        ? Prisma.JsonNull 
+        : responseBody as Prisma.InputJsonValue
 
         return this.db.idempotencyKey.update({
             where:{id},
@@ -57,11 +69,16 @@ export class IdempotencyRepository{
         })
     }
 
-    async markFailed(id: string): Promise<IdempotencyKey>{
-        return this.db.idempotencyKey.update({
-            where: {id},
+    async markFailed(id: string): Promise<boolean>{
+        const result = await this.db.idempotencyKey.updateMany({
+            where: {
+                id,
+                status: IdempotencyStatus.PROCESSING
+            },
             data: { status: IdempotencyStatus.FAILED }
         })
+
+        return result.count === 1
     }
 
     async reclaimFailed(id: string): Promise<boolean>{
@@ -90,7 +107,7 @@ export class IdempotencyRepository{
             },
             data:{
                 status: IdempotencyStatus.PROCESSING,
-                newExpiresAt
+                expiresAt: newExpiresAt
             }
         })
 

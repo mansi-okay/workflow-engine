@@ -53,6 +53,13 @@ enum AuditAction {
   WORKFLOW_DRAFT_CREATED
   WORKFLOW_VERSION_PUBLISHED
   WORKFLOW_VERSION_ROLLED_BACK
+
+  WORKFLOW_EXECUTION_REQUESTED
+  WORKFLOW_EXECUTION_STARTED
+  WORKFLOW_EXECUTION_SUCCEEDED
+  WORKFLOW_EXECUTION_FAILED
+  WORKFLOW_EXECUTION_CANCEL_REQUESTED
+  WORKFLOW_EXECUTION_CANCELLED
 }
 
 enum IdempotencyStatus {
@@ -63,20 +70,28 @@ enum IdempotencyStatus {
 
 enum IdempotencyOperation {
   CREATE_ORGANIZATION
+
   CREATE_INVITATION
   ACCEPT_INVITATION
+
   TRANSFER_OWNERSHIP
+
   FORGOT_PASSWORD
   RESET_PASSWORD
+
   VERIFY_EMAIL
   RESEND_VERIFICATION_EMAIL
+
   CREATE_WORKFLOW
   UPDATE_WORKFLOW
   DELETE_WORKFLOW
+
   UPDATE_WORKFLOW_GRAPH
   CREATE_WORKFLOW_DRAFT
   PUBLISH_WORKFLOW_VERSION
   ROLLBACK_WORKFLOW_VERSION
+
+  RUN_WORKFLOW
 }
 
 enum OutboxEventType {
@@ -85,6 +100,7 @@ enum OutboxEventType {
   SEND_PASSWORD_RESET_EMAIL
   SEND_PASSWORD_RESET_SUCCESS_EMAIL
   SEND_EMAIL_VERIFICATION_SUCCESS_EMAIL
+  WORKFLOW_EXECUTION_REQUESTED
 }
 
 enum OutboxStatus {
@@ -98,6 +114,29 @@ enum WorkflowVersionStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  CANCEL_REQUESTED
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum NodeExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum TriggerType {
+  MANUAL
+  WEBHOOK
 }
 
 model User {
@@ -271,10 +310,14 @@ model OutboxEvent {
   attempts    Int             @default(0)
   availableAt DateTime        @default(now())
   processedAt DateTime?
+  claimedAt DateTime? // for recovering stale PROCESSING
+  // Prevents differnt workers from changing the outbox event state but not exactly-once execution
+  claimToken String? 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@index([status, availableAt])
+  @@index([status, claimedAt])
 }
 
 model Workflow {
@@ -300,6 +343,7 @@ model Workflow {
   deletedAt DateTime?
 
   workflowVersions WorkflowVersion[]
+  executions Execution[]
 
   @@index([organizationId])
 }
@@ -328,8 +372,11 @@ model WorkflowVersion {
   draftForWorkflow    Workflow[] @relation("DraftVersion")
   nodes               Node[]
   edges               Edge[]
+  executions Execution[]
+  nodeExecutions NodeExecution[]
 
   @@unique([workflowId, versionNumber])
+  @@unique([id, workflowId])
 }
 
 model Node {
@@ -348,8 +395,10 @@ model Node {
 
   outgoingEdges Edge[] @relation("SourceNode")
   incomingEdges Edge[] @relation("TargetNode")
+  nodeExecutions NodeExecution[]
 
   @@unique([workflowVersionId, nodeKey])
+  @@unique([id, workflowVersionId])
 }
 
 model Edge {
@@ -369,4 +418,61 @@ model Edge {
   @@unique([workflowVersionId, sourceNodeId, targetNodeId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
+}
+
+model Execution {
+  id String @id @default(cuid())
+
+  workflowId String
+  workflow Workflow @relation(fields:[workflowId], references: [id], onDelete: Restrict)
+
+  workflowVersionId String
+  workflowVersion WorkflowVersion @relation(fields:[workflowVersionId, workflowId], references: [id, workflowId], onDelete: Restrict)
+
+  status ExecutionStatus @default(QUEUED)
+  triggerType TriggerType
+  startedAt DateTime?
+  completedAt DateTime?
+  input Json?
+  error Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  nodeExecutions NodeExecution[]
+
+  @@unique([id, workflowVersionId])
+  @@index([workflowVersionId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([workflowId, createdAt])
+  @@index([status, createdAt])
+}
+
+model NodeExecution {
+  id String @id @default(cuid())
+
+  executionId String
+  execution Execution @relation(fields:[executionId, workflowVersionId], references: [id, workflowVersionId], onDelete: Restrict)
+
+  nodeId String
+  node Node @relation(fields: [nodeId, workflowVersionId], references: [id, workflowVersionId], onDelete: Restrict)
+
+  workflowVersionId String
+  workflowVersion WorkflowVersion @relation(fields:[workflowVersionId], references: [id], onDelete: Restrict)
+
+  status NodeExecutionStatus @default(PENDING)
+  startedAt DateTime?
+  completedAt DateTime?
+  input Json?
+  output Json?
+  error Json?
+  attempt Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([executionId, nodeId, attempt])
+  @@index([executionId])
+  @@index([nodeId])
+  @@index([status])
+  @@index([createdAt])
 }

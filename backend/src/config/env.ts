@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import {z} from "zod";
-import { durationSchema } from "../shared/validators/env.validator.js";
+import { durationSchema } from "../shared/validations/env.validator.js";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development","production","test"]).default("development"),

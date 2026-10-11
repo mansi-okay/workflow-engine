@@ -12,7 +12,7 @@ import { UpdateOrganizationInput } from "../validations/update_organization.sche
 import { UpdateOrganizationData, type OrganizationListResult } from "../types/organization.types.js";
 import { toOrganizationResponseDto } from "../mappers/organization.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 
 export class OrganizationService{ 
     constructor(

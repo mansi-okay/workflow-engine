@@ -12,7 +12,7 @@ import { resetPasswordBodySchema, resetPasswordQuerySchema } from "../validation
 import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.middleware.js";
 import { idempotencyService } from "../../../container/idempotency.container.js";
 import { IdempotencyOperation } from "@prisma/client";
-import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
+import { paginationSchema } from "../../../shared/validations/pagination.schema.js";
 
 const router = Router()
 

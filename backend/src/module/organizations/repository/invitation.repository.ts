@@ -2,7 +2,7 @@ import { Invitation, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
 import { PublicInvitation, type InvitationListResult } from "../types/organization.types.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
 import { organizationCursorSchema } from "../validations/organization_cursor.schema.js";
 

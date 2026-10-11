@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express"
 import { AsyncController } from "../types/express.types.js"
-import { OrganizationParamsInput } from "../validators/organization_params.schema.js"
+import { OrganizationParamsInput } from "../validations/organization_params.schema.js"
 import { MembershipRepository } from "../../module/organizations/repository/membership.repository.js"
 import { getAuthContext } from "../utils/http/get_auth_context.js"
 import { NotFoundError } from "../error/HttpErrors.js"

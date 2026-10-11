@@ -1,7 +1,7 @@
 import { Membership, Prisma, PrismaClient, Role } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { MembershipWithOrganization, MembershipWithUser, type MembershipListResult, type OrganizationListResult } from "../types/organization.types.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
 import { organizationCursorSchema } from "../validations/organization_cursor.schema.js";
 

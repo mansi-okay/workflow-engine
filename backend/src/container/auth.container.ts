@@ -1,5 +1,4 @@
 import { AuthController } from "../module/auth/controllers/auth.controller.js";
-import { VerificationTokenRepository } from "../module/auth/repository/verification_token.repository.js";
 import { AuthService } from "../module/auth/services/auth.service.js";
 import { PasswordService } from "../module/auth/services/password.service.js";
 import { VerificationService } from "../module/auth/services/verification.service.js";

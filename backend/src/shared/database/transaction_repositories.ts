@@ -1,5 +1,6 @@
 import type { SessionRepository } from "../../module/auth/repository/session.repository.js";
 import type { VerificationTokenRepository } from "../../module/auth/repository/verification_token.repository.js";
+import type { ExecutionRepository } from "../../module/executions/repository/execution.repository.js";
 import type { InvitationRepository } from "../../module/organizations/repository/invitation.repository.js";
 import type { MembershipRepository } from "../../module/organizations/repository/membership.repository.js";
 import type { OrganizationRepository } from "../../module/organizations/repository/organization.repository.js";
@@ -26,4 +27,5 @@ export interface TransactionRepositories {
     workflowVersions: WorkflowVersionRepository
     nodes: NodeRepository
     edges: EdgeRepository
+    executions: ExecutionRepository
 }

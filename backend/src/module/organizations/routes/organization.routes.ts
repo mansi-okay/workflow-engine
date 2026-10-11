@@ -4,7 +4,7 @@ import { authenticateUser } from "../../../container/auth.container.js";
 import { validate } from "../../../shared/middleware/validate.middleware.js";
 import { createOrganizationSchema } from "../validations/create_organization.schema.js";
 import { organizationContext, organizationController } from "../../../container/organization.container.js";
-import { organizationParamsSchema } from "../../../shared/validators/organization_params.schema.js";
+import { organizationParamsSchema } from "../../../shared/validations/organization_params.schema.js";
 import { authorizeOrganizationRole } from "../../../shared/middleware/authorize_organization_role.middleware.js";
 import { IdempotencyOperation, Role } from "@prisma/client";
 import { updateOrganizationSchema } from "../validations/update_organization.schema.js";
@@ -16,7 +16,9 @@ import { createInvitationBodySchema } from "../validations/create_invitation.sch
 import { revokeInvitationParamsSchema } from "../validations/revoke_invitation.schema.js";
 import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.middleware.js";
 import { idempotencyService } from "../../../container/idempotency.container.js";
-import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
+import { paginationSchema } from "../../../shared/validations/pagination.schema.js";
+import workflowRouter from "../../workflows/routes/workflow.routes.js"
+import executionRouter from "../../executions/routes/execution.routes.js";
 
 const router = Router()
 
@@ -126,5 +128,8 @@ router.delete(
     asyncHandler(authorizeOrganizationRole(Role.OWNER, Role.ADMIN)),
     asyncHandler(organizationController.revokeInvitation)
 )
+
+router.use("/:organizationId/workflows", workflowRouter)
+router.use("/:organizationId",executionRouter)
 
 export default router

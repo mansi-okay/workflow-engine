@@ -14,6 +14,7 @@ import { WorkflowRepository } from "../../module/workflows/repository/workflow.r
 import { WorkflowVersionRepository } from "../../module/workflows/repository/workflow_version.repository.js";
 import { NodeRepository } from "../../module/workflows/repository/node.repository.js";
 import { EdgeRepository } from "../../module/workflows/repository/edge.repository.js";
+import { ExecutionRepository } from "../../module/executions/repository/execution.repository.js";
 
 export class UnitOfWork {
 
@@ -41,7 +42,8 @@ export class UnitOfWork {
             workflows: new WorkflowRepository(tx),
             workflowVersions: new WorkflowVersionRepository(tx),
             nodes: new NodeRepository(tx),
-            edges: new EdgeRepository(tx)
+            edges: new EdgeRepository(tx),
+            executions: new ExecutionRepository(tx)
         }
     }
 }

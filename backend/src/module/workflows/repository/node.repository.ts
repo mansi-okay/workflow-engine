@@ -1,6 +1,7 @@
 import { Node, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import type { CreateNodeInput } from "../types/node.types.js";
+import { getTriggerTypes } from "../../../registry/node_type.utils.js";
 
 export class NodeRepository{
     constructor(
@@ -31,4 +32,20 @@ export class NodeRepository{
         })
     }
 
+    async getTriggerNode(
+        workflowVersionId: string,
+        workflowId: string
+    ): Promise<Node | null>{
+        return this.db.node.findFirst({
+            where:{
+                workflowVersionId,
+                type : {
+                    in: getTriggerTypes()
+                },
+                version: {
+                    workflowId
+                }
+            }
+        })
+    }
 }

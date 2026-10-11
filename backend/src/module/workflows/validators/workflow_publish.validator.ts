@@ -1,7 +1,7 @@
 import type { NodeInput, WorkflowGraphBodyInput } from "../validations/workflow_graph.schema.js";
 import { BadRequestError } from "../../../shared/error/HttpErrors.js";
-import { getNodeCategory } from "../registry/node_type.registry.js";
 import { validateWorkflowGraph } from "../../../shared/graph/graph.validator.js";
+import { getNodeCategory } from "../../../registry/node_type.utils.js";
 
 function validateWorkflowHasNodes(nodes: NodeInput[]){
     if (nodes.length === 0){

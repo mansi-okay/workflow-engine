@@ -1,4 +1,5 @@
 import { WorkflowController } from "../module/workflows/controllers/workflow.controller.js";
+import { NodeRepository } from "../module/workflows/repository/node.repository.js";
 import { WorkflowRepository } from "../module/workflows/repository/workflow.repository.js";
 import { WorkflowVersionRepository } from "../module/workflows/repository/workflow_version.repository.js";
 import { WorkflowService } from "../module/workflows/services/workflow.service.js";
@@ -8,6 +9,7 @@ import { idempotencyService } from "./idempotency.container.js";
 
 const workflowRepository = new WorkflowRepository()
 const workflowVersionRepository = new WorkflowVersionRepository()
+export const nodeRepository = new NodeRepository()
 
 const workflowService = new WorkflowService(
     unitOfWork, 

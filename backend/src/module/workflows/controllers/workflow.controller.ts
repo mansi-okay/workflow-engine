@@ -9,11 +9,11 @@ import { toWorkflowResponse } from "../mappers/workflow.mapper.js";
 import { toWorkflowGraphResponse, toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
 import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
 import type { WorkflowListQueryInput } from "../validations/workflow_list.schema.js";
-import type { WorkflowParamsInput } from "../validations/workflow_params.schema.js";
+import type { WorkflowParamsInput } from "../../../shared/validations/workflow_params.schema.js";
 import type { UpdateWorkflowMetadataBodyInput } from "../validations/update_workflow.schema.js";
 import type { WorkflowVersionService } from "../services/workflow_version.service.js";
 import type { WorkflowGraphBodyInput } from "../validations/workflow_graph.schema.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import type { WorkflowVersionParamsInput } from "../validations/workflow_version_params.schema.js";
 import type { RollbackWorkflowVersionBodyInput } from "../validations/rollback_version.schema.js";
 

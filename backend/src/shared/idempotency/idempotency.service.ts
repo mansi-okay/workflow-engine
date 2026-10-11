@@ -1,9 +1,10 @@
-import { IdempotencyOperation, IdempotencyStatus, type Prisma } from "@prisma/client";
+import { IdempotencyOperation, IdempotencyStatus } from "@prisma/client";
 import type { IdempotencyRepository } from "./idempotency.repository.js";
-import type { IdempotencyClaimResult, JsonValue } from "./idempotency.types.js";
+import type { IdempotencyClaimResult } from "./idempotency.types.js";
 import { ConflictError, IdempotencyKeyConflictError } from "../error/HttpErrors.js";
 import { env } from "../../config/env.js";
 import { createExpirationDate } from "../utils/date/expiration.js";
+import type { JsonValue } from "../types/json.types.js";
 
 export class IdempotencyService{
     constructor(
@@ -144,7 +145,11 @@ export class IdempotencyService{
     }
 
     async markFailed(id:string): Promise<void>{
-        await this.idempotencyRepository.markFailed(id)
+        const result = await this.idempotencyRepository.markFailed(id)
+        
+        if (!result){
+            throw new ConflictError("Could not mark failiure")
+        }
     }
 
 }

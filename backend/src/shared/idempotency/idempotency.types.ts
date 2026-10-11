@@ -1,4 +1,13 @@
-import type { IdempotencyKey } from "@prisma/client"
+import type { IdempotencyKey, IdempotencyOperation, IdempotencyStatus } from "@prisma/client"
+
+export type IdempotencyCreateInput = {
+    key: string
+    userId: string
+    requestHash: string
+    operation: IdempotencyOperation
+    status: IdempotencyStatus
+    expiresAt: Date
+}
 
 export type IdempotencyClaimResult = 
 {
@@ -13,11 +22,3 @@ export type IdempotencyClaimResult =
     type: "RETRY",
     record: IdempotencyKey
 }
-
-export type JsonValue =
-string | 
-number | 
-boolean | 
-null |   
-JsonValue[] | 
-{ [key: string]: JsonValue }

@@ -2,7 +2,7 @@ import { Prisma, PrismaClient, Session } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { hashToken } from "../../../shared/utils/auth/token.js";
 import { SessionWithUser } from "../types/auth.types.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
 import { sessionCursorSchema } from "../validations/session_cursor.schema.js";

@@ -1,6 +1,6 @@
 import { WorkflowVersionStatus, type Prisma, type PrismaClient, type WorkflowVersion } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import type { WorkflowVersionListResult, WorkflowVersionWithGraph } from "../types/version.types.js";
 import { decodeCursor, encodeCursor } from "../../../shared/utils/pagination/cursor.js";
 import { workflowVersionCursorSchema } from "../validations/workflow_version_cursor.schema.js";

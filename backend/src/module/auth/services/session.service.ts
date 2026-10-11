@@ -11,7 +11,7 @@ import { Logger } from "pino";
 import { BadRequestError, UnauthorizedError } from "../../../shared/error/HttpErrors.js";
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { AuthContext } from "../../../shared/types/request_context.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import type { PaginationMeta } from "../../../shared/types/pagination.types.js";
 
 export class SessionService {

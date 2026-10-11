@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { asyncHandler } from "../../../shared/utils/common/asyncHandler.js";
-import { authController, authenticateUser } from "../../../container/auth.container.js";
+import { authenticateUser } from "../../../container/auth.container.js";
 import { validate } from "../../../shared/middleware/validate.middleware.js";
-import { organizationParamsSchema } from "../../../shared/validators/organization_params.schema.js";
+import { organizationParamsSchema } from "../../../shared/validations/organization_params.schema.js";
 import { organizationContext } from "../../../container/organization.container.js";
 import { authorizeOrganizationRole } from "../../../shared/middleware/authorize_organization_role.middleware.js";
 import { IdempotencyOperation, Role } from "@prisma/client";
@@ -11,16 +11,16 @@ import { idempotencyMiddleware } from "../../../shared/middleware/idempotency.mi
 import { idempotencyService } from "../../../container/idempotency.container.js";
 import { workflowController } from "../../../container/workflow.container.js";
 import { workflowListQuerySchema } from "../validations/workflow_list.schema.js";
-import { workflowParamsSchema } from "../validations/workflow_params.schema.js";
+import { workflowParamsSchema } from "../../../shared/validations/workflow_params.schema.js";
 import { updateWorkflowMetadataBodySchema } from "../validations/update_workflow.schema.js";
 import { workflowGraphSchema } from "../validations/workflow_graph.schema.js";
-import { paginationSchema } from "../../../shared/validators/pagination.schema.js";
+import { paginationSchema } from "../../../shared/validations/pagination.schema.js";
 import { workflowVersionParamsSchema } from "../validations/workflow_version_params.schema.js";
 import { rollbackWorkflowVersionSchema } from "../validations/rollback_version.schema.js";
 
-const router = Router()
+const router = Router({mergeParams: true})
 
-router.route("/:organizationId/workflows")
+router.route("/")
 .post(
     asyncHandler(authenticateUser),
     validate(organizationParamsSchema,"params"),
@@ -39,7 +39,7 @@ router.route("/:organizationId/workflows")
     asyncHandler(workflowController.getWorkflows)
 )
 
-router.route("/:organizationId/workflows/:workflowId")
+router.route("/:workflowId")
 .get(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -63,7 +63,7 @@ router.route("/:organizationId/workflows/:workflowId")
     asyncHandler(workflowController.deleteWorkflow)
 )
 
-router.route("/:organizationId/workflows/:workflowId/draft/graph")
+router.route("/:workflowId/draft/graph")
 .get(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -81,7 +81,7 @@ router.route("/:organizationId/workflows/:workflowId/draft/graph")
     asyncHandler(workflowController.updateWorkflowGraph)
 )
 
-router.route("/:organizationId/workflows/:workflowId/versions")
+router.route("/:workflowId/versions")
 .get(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -91,7 +91,7 @@ router.route("/:organizationId/workflows/:workflowId/versions")
     asyncHandler(workflowController.getVersions)
 )
 
-router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId")
+router.route("/:workflowId/versions/:workflowVersionId")
 .get(
     asyncHandler(authenticateUser),
     validate(workflowVersionParamsSchema, "params"),
@@ -100,7 +100,7 @@ router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId
     asyncHandler(workflowController.getVersion)
 )
 
-router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId/graph")
+router.route("/:workflowId/versions/:workflowVersionId/graph")
 .get(
     asyncHandler(authenticateUser),
     validate(workflowVersionParamsSchema,"params"),
@@ -109,7 +109,7 @@ router.route("/:organizationId/workflows/:workflowId/versions/:workflowVersionId
     asyncHandler(workflowController.getVersionGraph)
 )
 
-router.route("/:organizationId/workflows/:workflowId/drafts")
+router.route("/:workflowId/drafts")
 .post(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -119,7 +119,7 @@ router.route("/:organizationId/workflows/:workflowId/drafts")
     asyncHandler(workflowController.createDraft)
 )
 
-router.route("/:organizationId/workflows/:workflowId/publish")
+router.route("/:workflowId/publish")
 .post(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -129,7 +129,7 @@ router.route("/:organizationId/workflows/:workflowId/publish")
     asyncHandler(workflowController.publishWorkflowVersion)
 )
 
-router.route("/:organizationId/workflows/:workflowId/rollback")
+router.route("/:workflowId/rollback")
 .post(
     asyncHandler(authenticateUser),
     validate(workflowParamsSchema, "params"),
@@ -139,3 +139,5 @@ router.route("/:organizationId/workflows/:workflowId/rollback")
     idempotencyMiddleware(idempotencyService, IdempotencyOperation.ROLLBACK_WORKFLOW_VERSION),
     asyncHandler(workflowController.rollbackWorkflowVersion)
 )
+
+export default router

@@ -8,7 +8,7 @@ import { AuditAction, Role, WorkflowVersionStatus, type WorkflowVersion } from "
 import type { SessionMetadata } from "../../../shared/types/session.types.js";
 import type { Logger } from "pino";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 import type { WorkflowVersionListResult, WorkflowVersionWithGraph } from "../types/version.types.js";
 import { toWorkflowVersionResponse } from "../mappers/workflow_version.mapper.js";
 import { validateWorkflowForPublish } from "../validators/workflow_publish.validator.js";

@@ -18,7 +18,7 @@ import { PasswordService } from "../services/password.service.js";
 import { ResetPasswordBodyInput, ResetPasswordQueryInput } from "../validations/reset_password.schema.js";
 import { getAuthContext } from "../../../shared/utils/http/get_auth_context.js";
 import { getIdempotencyContext } from "../../../shared/utils/http/get_idempotency_context.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 
 export class AuthController {
     constructor(

@@ -7,7 +7,7 @@ import { ForbiddenError, NotFoundError } from "../../../shared/error/HttpErrors.
 import { UnitOfWork } from "../../../shared/database/unit_of_work.js";
 import { toMembershipWithUserResponseDto } from "../mappers/membership.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 
 export class MembershipService {
     constructor(

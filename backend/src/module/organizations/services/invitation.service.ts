@@ -13,7 +13,7 @@ import { PublicInvitation, type InvitationListResult } from "../types/organizati
 import { toInvitationResponseDto } from "../mappers/invitation.mapper.js";
 import type { IdempotencyService } from "../../../shared/idempotency/idempotency.service.js";
 import { toMembershipResponseDto } from "../mappers/membership.mapper.js";
-import type { PaginationInput } from "../../../shared/validators/pagination.schema.js";
+import type { PaginationInput } from "../../../shared/validations/pagination.schema.js";
 
 export class InvitationService{
     constructor(
